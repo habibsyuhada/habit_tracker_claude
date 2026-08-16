@@ -17,6 +17,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const pushToast = useGame((s) => s.pushToast);
   const resetAll = useGame((s) => s.resetAll);
 
+  const sound = useGame((s) => s.sound);
+  const setSound = useGame((s) => s.setSound);
   const [name, setName] = useState(player.name);
   const [avatar, setAvatar] = useState(player.avatar);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -120,6 +122,18 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               value={reminder.time}
               onChange={(e) => applyReminder(reminder.enabled, e.target.value)}
             />
+          </div>
+        </div>
+
+        <div className="field">
+          <span>Efek suara</span>
+          <div className="chip-row">
+            <button
+              className={`chip ${sound ? 'active' : ''}`}
+              onClick={() => setSound(!sound)}
+            >
+              {sound ? '🔊 Aktif' : '🔇 Senyap'}
+            </button>
           </div>
         </div>
 

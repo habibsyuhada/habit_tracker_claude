@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useGame } from '../store/useGame';
 import { dateKey } from '../game/formulas';
+import { ACHIEVEMENTS } from '../game/achievements';
 import type { DayStats } from '../types';
 
 /**
@@ -292,6 +293,8 @@ export function StatsModal({ onClose }: { onClose: () => void }) {
   const player = useGame((s) => s.player);
   const tasks = useGame((s) => s.tasks);
   const history = useGame((s) => s.history);
+  const achievements = useGame((s) => s.achievements);
+  const unlockedCount = Object.keys(achievements).length;
 
   const days14 = useMemo(() => lastNDays(history, 14), [history]);
   const bestStreak = tasks.reduce(
@@ -335,6 +338,25 @@ export function StatsModal({ onClose }: { onClose: () => void }) {
             <b>{player.ownedGear.length}</b>
             <span>perlengkapan</span>
           </div>
+        </div>
+
+        <h3 className="ach-heading">
+          🏆 Pencapaian · {unlockedCount}/{ACHIEVEMENTS.length}
+        </h3>
+        <div className="ach-grid">
+          {ACHIEVEMENTS.map((a) => {
+            const unlockedAt = achievements[a.id];
+            return (
+              <div
+                key={a.id}
+                className={`ach-tile ${unlockedAt ? 'unlocked' : ''}`}
+                title={unlockedAt ? `${a.desc} — terbuka ${unlockedAt}` : a.desc}
+              >
+                <span className="ach-emoji">{unlockedAt ? a.emoji : '🔒'}</span>
+                <span className="ach-name">{a.name}</span>
+              </div>
+            );
+          })}
         </div>
 
         {hasData ? (

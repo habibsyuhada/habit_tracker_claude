@@ -34,6 +34,8 @@ Semua data tersimpan **di perangkat** (Capacitor Preferences di Android/iOS, loc
 | **Dekorasi** | 6 dekorasi kosmetik (taman bunga, patung, gerbang pelangi, ...) untuk mempercantik peta wilayah |
 | **Onboarding** | Cerita pembuka 3 babak untuk pemain baru: kisah kerajaan, penjelasan titah, dan penobatan (nama + lambang) |
 | **Haptics** | Getaran kontekstual via Capacitor Haptics: halus saat XP, kuat saat damage/ancaman, notifikasi saat naik level |
+| **Efek suara** | SFX chiptune disintesis via WebAudio (nol file aset): blip XP, denting koin, arpeggio naik level, buzz damage — bisa dimatikan di Profil |
+| **Pencapaian** | 21 achievement (titah, streak, level, rakyat, kastil, pet, ancaman, dekorasi, ...) dengan galeri di halaman Statistik |
 
 Mekanik "ampun": kalau app lama tidak dibuka, damage hanya ditagih maksimal 3 hari.
 

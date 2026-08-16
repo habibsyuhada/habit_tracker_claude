@@ -114,6 +114,8 @@ export interface Kingdom {
   decor: string[];
   /** ancaman yang sedang aktif (bila ada) */
   threat?: ActiveThreat;
+  /** jumlah ancaman yang berhasil ditangkal */
+  threatsRepelled: number;
   /** catatan peristiwa kerajaan, terbaru di depan */
   log: KingdomLogEntry[];
 }

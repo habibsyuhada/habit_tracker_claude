@@ -28,6 +28,8 @@ import {
 } from '../game/formulas';
 import { offlineStorage } from './storage';
 import { hapticForToast } from '../haptics';
+import { sfxForToast } from '../sfx';
+import { ACHIEVEMENTS } from '../game/achievements';
 import {
   DROP_CHANCE,
   GEAR_BY_ID,
@@ -86,6 +88,12 @@ interface GameState {
   /** sudah melewati cerita pembuka */
   onboarded: boolean;
   setOnboarded: () => void;
+  /** efek suara aktif */
+  sound: boolean;
+  setSound: (on: boolean) => void;
+  /** id pencapaian → tanggal terbuka */
+  achievements: Record<string, string>;
+  checkAchievements: () => void;
   toasts: Toast[];
   _hydrated: boolean;
 
@@ -144,6 +152,7 @@ const defaultKingdom = (): Kingdom => ({
   citizens: [newCitizen(), newCitizen(), newCitizen()],
   buildings: {},
   decor: [],
+  threatsRepelled: 0,
   log: [],
 });
 
@@ -193,6 +202,7 @@ function progressThreat(
     {
       ...kingdom,
       threat: undefined,
+      threatsRepelled: kingdom.threatsRepelled + 1,
       log: [
         { date: dateKey(), text: `${def.emoji} ${def.name} diusir oleh titah rajanya!` },
         ...kingdom.log,
@@ -353,14 +363,34 @@ export const useGame = create<GameState>()(
       history: {},
       kingdom: defaultKingdom(),
       onboarded: false,
+      sound: true,
+      achievements: {},
       toasts: [],
       _hydrated: false,
 
       setOnboarded: () => set({ onboarded: true }),
 
+      setSound: (on) => set({ sound: on }),
+
+      checkAchievements: () => {
+        const s = get();
+        const snapshot = { player: s.player, kingdom: s.kingdom, tasks: s.tasks };
+        const newly = ACHIEVEMENTS.filter(
+          (a) => !s.achievements[a.id] && a.cond(snapshot)
+        );
+        if (newly.length === 0) return;
+        const unlocked = { ...s.achievements };
+        for (const a of newly) {
+          unlocked[a.id] = dateKey();
+          s.pushToast('level', `🏆 Pencapaian terbuka: ${a.emoji} ${a.name}!`);
+        }
+        set({ achievements: unlocked });
+      },
+
       pushToast: (kind, text) => {
         const toast: Toast = { id: uid(), kind, text };
         hapticForToast(kind);
+        if (get().sound) sfxForToast(kind);
         set((s) => ({ toasts: [...s.toasts.slice(-3), toast] }));
       },
 
@@ -473,6 +503,7 @@ export const useGame = create<GameState>()(
           tasks: s.tasks.map((t) => (t.id === id ? updated : t)),
           history: bumpHistory(s.history, hist),
         }));
+        get().checkAchievements();
       },
 
       toggleDaily: (id) => {
@@ -530,6 +561,7 @@ export const useGame = create<GameState>()(
           tasks: s.tasks.map((t) => (t.id === id ? updated : t)),
           history: bumpHistory(s.history, hist),
         }));
+        get().checkAchievements();
       },
 
       toggleTodo: (id) => {
@@ -583,6 +615,7 @@ export const useGame = create<GameState>()(
           tasks: s.tasks.map((t) => (t.id === id ? updated : t)),
           history: bumpHistory(s.history, hist),
         }));
+        get().checkAchievements();
       },
 
       toggleChecklistItem: (taskId, itemId) =>
@@ -634,6 +667,7 @@ export const useGame = create<GameState>()(
           },
         }));
         pushToast('level', `${item.emoji} ${item.name} dibeli & langsung dipakai!`);
+        get().checkAchievements();
       },
 
       equipGear: (gearId) => {
@@ -676,6 +710,7 @@ export const useGame = create<GameState>()(
           },
         }));
         pushToast('level', `🐣 ${species.name} ${potion.name} menetas!`);
+        get().checkAchievements();
       },
 
       setActivePet: (id) =>
@@ -718,6 +753,7 @@ export const useGame = create<GameState>()(
           'level',
           `${def.emoji} ${def.name}${newLevel > 1 ? ` naik ke Lv ${newLevel}` : ' berdiri'}!`
         );
+        get().checkAchievements();
       },
 
       buyDecor: (decorId) => {
@@ -743,6 +779,7 @@ export const useGame = create<GameState>()(
           },
         }));
         pushToast('level', `${def.emoji} ${def.name} terpasang di petamu!`);
+        get().checkAchievements();
       },
 
       /**
@@ -942,6 +979,7 @@ export const useGame = create<GameState>()(
           lastCron: today,
           history: trimmed,
         });
+        get().checkAchievements();
       },
 
       setProfile: (name, avatar) =>
@@ -964,6 +1002,7 @@ export const useGame = create<GameState>()(
             reminder,
             history,
             kingdom,
+            achievements: get().achievements,
           },
           null,
           2
@@ -1001,8 +1040,10 @@ export const useGame = create<GameState>()(
                       ? Array.from({ length: data.kingdom.citizens }, () => newCitizen())
                       : data.kingdom.citizens ?? [],
                   decor: data.kingdom.decor ?? [],
+                  threatsRepelled: data.kingdom.threatsRepelled ?? 0,
                 }
               : defaultKingdom(),
+            achievements: data.achievements ?? {},
           });
           get().pushToast('info', '📥 Backup berhasil dipulihkan!');
           return true;
@@ -1021,19 +1062,22 @@ export const useGame = create<GameState>()(
           history: {},
           kingdom: defaultKingdom(),
           onboarded: false,
+          achievements: {},
           toasts: [],
         }),
     }),
     {
       name: 'habitquest-save',
       storage: createJSONStorage(() => offlineStorage),
-      version: 7,
+      version: 8,
       // save lama tetap terbaca: lengkapi field yang belum ada
       migrate: (persisted) => {
         const s = persisted as Partial<GameState>;
         s.history ??= {};
         // pemain lama tidak perlu melihat cerita pembuka lagi
         s.onboarded ??= true;
+        s.sound ??= true;
+        s.achievements ??= {};
         s.kingdom ??= defaultKingdom();
         // v5 → v6: rakyat dulu hanya angka, kini punya nama & profesi
         if (typeof (s.kingdom as { citizens: unknown }).citizens === 'number') {
@@ -1044,6 +1088,7 @@ export const useGame = create<GameState>()(
           };
         }
         s.kingdom.decor ??= [];
+        s.kingdom.threatsRepelled ??= 0;
         if (Array.isArray(s.tasks)) {
           s.tasks = s.tasks.map((t) => {
             if (t.type !== 'daily' && t.type !== 'todo') return t;
@@ -1073,6 +1118,8 @@ export const useGame = create<GameState>()(
         history: s.history,
         kingdom: s.kingdom,
         onboarded: s.onboarded,
+        sound: s.sound,
+        achievements: s.achievements,
       }),
       onRehydrateStorage: () => () => {
         useGame.setState({ _hydrated: true });
