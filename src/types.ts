@@ -116,6 +116,11 @@ export interface Kingdom {
   threat?: ActiveThreat;
   /** jumlah ancaman yang berhasil ditangkal */
   threatsRepelled: number;
+  /**
+   * progres perekrutan rakyat (0..CITIZEN_EVERY-1). Hanya maju saat tugas
+   * selesai dan mundur saat batal centang — anti exploit centang-batal.
+   */
+  recruitProgress: number;
   /** catatan peristiwa kerajaan, terbaru di depan */
   log: KingdomLogEntry[];
 }

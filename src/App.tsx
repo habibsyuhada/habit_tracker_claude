@@ -27,9 +27,10 @@ const TABS: { type: Tab; label: string; icon: string }[] = [
 const EMPTY_HINT: Record<Tab, string> = {
   bag: '',
   habit: 'Habit adalah kebiasaan yang bisa diskor + (baik) atau − (buruk) kapan saja.',
-  daily: 'Daily harus diselesaikan sesuai jadwal — kalau terlewat, HP-mu berkurang!',
-  todo: 'To-Do adalah tugas sekali selesai. Centang untuk dapat XP & gold.',
-  reward: 'Tebus gold hasil kerja kerasmu dengan hadiah buatanmu sendiri.',
+  daily:
+    'Daily adalah titah terjadwal — kalau terlewat, moral rakyatmu merosot!',
+  todo: 'To-Do adalah titah sekali selesai. Centang untuk mengisi kas & kemakmuran.',
+  reward: 'Tebus kas hasil kerja kerasmu dengan hadiah buatanmu sendiri.',
 };
 
 export default function App() {

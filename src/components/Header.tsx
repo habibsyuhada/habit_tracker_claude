@@ -44,10 +44,10 @@ export function Header({ onOpenSettings, onOpenStats }: Props) {
                 ❤️ Moral {player.hp.toFixed(1)} / {player.maxHp}
               </span>
             </div>
-            <div className="bar">
+            <div className="bar" title="Kemakmuran">
               <div className="bar-fill xp" style={{ width: `${xpPct}%` }} />
               <span className="bar-label">
-                ⭐ {player.xp} / {xpNeeded}
+                ⭐ Makmur {player.xp} / {xpNeeded}
               </span>
             </div>
           </div>

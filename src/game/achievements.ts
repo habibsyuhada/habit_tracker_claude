@@ -86,17 +86,17 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   },
   {
     id: 'pet1', name: 'Sahabat Pertama', emoji: '🐣',
-    desc: 'Tetaskan pet pertamamu',
+    desc: 'Tetaskan satwa kerajaan pertamamu',
     cond: (s) => s.player.pets.length >= 1,
   },
   {
     id: 'pet6', name: 'Penjaga Satwa', emoji: '🦄',
-    desc: 'Koleksi 6 pet',
+    desc: 'Koleksi 6 satwa kerajaan',
     cond: (s) => s.player.pets.length >= 6,
   },
   {
-    id: 'gearAll', name: 'Gudang Senjata Penuh', emoji: '🗡️',
-    desc: 'Miliki seluruh 15 perlengkapan',
+    id: 'gearAll', name: 'Pusaka Paripurna', emoji: '🗡️',
+    desc: 'Miliki seluruh 15 pusaka kerajaan',
     cond: (s) => s.player.ownedGear.length >= 15,
   },
   {

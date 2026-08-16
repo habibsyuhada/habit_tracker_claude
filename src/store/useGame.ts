@@ -153,24 +153,46 @@ const defaultKingdom = (): Kingdom => ({
   buildings: {},
   decor: [],
   threatsRepelled: 0,
+  recruitProgress: 0,
   log: [],
 });
 
-/** Rakyat baru datang tiap kelipatan CITIZEN_EVERY tugas selesai. */
+/**
+ * Rakyat baru datang tiap CITIZEN_EVERY tugas selesai. Memakai counter
+ * satu arah (bukan totalTasksDone) supaya centang-batal-centang tidak
+ * bisa memanen rakyat berulang kali.
+ */
 function maybeGrowCitizens(
   kingdom: Kingdom,
-  totalTasksDone: number,
   push: (kind: Toast['kind'], text: string) => void
 ): Kingdom {
-  if (totalTasksDone <= 0 || totalTasksDone % CITIZEN_EVERY !== 0) return kingdom;
+  const progress = kingdom.recruitProgress + 1;
+  if (progress < CITIZEN_EVERY) {
+    return { ...kingdom, recruitProgress: progress };
+  }
   const citizen = newCitizen();
   const job = JOB_BY_ID[citizen.job];
-  const next = { ...kingdom, citizens: [...kingdom.citizens, citizen] };
+  const next = {
+    ...kingdom,
+    recruitProgress: 0,
+    citizens: [...kingdom.citizens, citizen],
+  };
   push(
     'level',
     `${job.emoji} ${citizen.name} sang ${job.name} bergabung! (${next.citizens.length} jiwa)`
   );
   return next;
+}
+
+/** Pembalikan saat batal centang: progres rekrut & ancaman ikut mundur. */
+function regressKingdomProgress(kingdom: Kingdom): Kingdom {
+  return {
+    ...kingdom,
+    recruitProgress: Math.max(0, kingdom.recruitProgress - 1),
+    threat: kingdom.threat
+      ? { ...kingdom.threat, progress: Math.max(0, kingdom.threat.progress - 1) }
+      : undefined,
+  };
 }
 
 /**
@@ -254,7 +276,7 @@ const seedTasks = (): Task[] => {
       id: uid(),
       type: 'todo',
       title: 'Jelajahi HabitQuest 🎉',
-      notes: 'Coba centang aku untuk dapat XP & gold!',
+      notes: 'Coba centang aku untuk mengisi kas & kemakmuran kerajaan!',
       difficulty: 'easy',
       completed: false,
       checklist: [],
@@ -325,11 +347,11 @@ function rollDrop(
   if (Math.random() < 0.5) {
     const s = SPECIES[Math.floor(Math.random() * SPECIES.length)];
     p.eggs = { ...p.eggs, [s.id]: (p.eggs[s.id] ?? 0) + 1 };
-    push('gold', `🥚 Kamu menemukan Telur ${s.name}!`);
+    push('gold', `🥚 Seorang pemburu mempersembahkan Telur ${s.name}!`);
   } else {
     const pot = POTIONS[Math.floor(Math.random() * POTIONS.length)];
     p.potions = { ...p.potions, [pot.id]: (p.potions[pot.id] ?? 0) + 1 };
-    push('gold', `🧪 Kamu menemukan Ramuan ${pot.name}!`);
+    push('gold', `🧪 Tabib istana meramu Ramuan ${pot.name}!`);
   }
   return p;
 }
@@ -483,7 +505,7 @@ export const useGame = create<GameState>()(
           p = applyGains(p, xp, gold, pushToast);
           p.totalTasksDone += 1;
           p = rollDrop(p, pushToast, eff.dropBonus);
-          kd = maybeGrowCitizens(kd, p.totalTasksDone, pushToast);
+          kd = maybeGrowCitizens(kd, pushToast);
           [kd, p] = progressThreat(kd, p, pushToast);
           hist = { done: 1, xp, gold };
           pushToast('xp', `+${xp} XP · +${gold.toFixed(1)} gold`);
@@ -532,17 +554,20 @@ export const useGame = create<GameState>()(
           p = applyGains(p, xp, gold, pushToast);
           p.totalTasksDone += 1;
           p = rollDrop(p, pushToast, eff.dropBonus);
-          kd = maybeGrowCitizens(kd, p.totalTasksDone, pushToast);
+          kd = maybeGrowCitizens(kd, pushToast);
           [kd, p] = progressThreat(kd, p, pushToast);
           hist = { done: 1, xp, gold };
           const streakNote = updated.streak > 1 ? ` · 🔥 streak ${updated.streak}` : '';
           pushToast('xp', `+${xp} XP · +${gold.toFixed(1)} gold${streakNote}`);
         } else {
-          // batal centang: kembalikan reward & streak
+          // batal centang: kembalikan reward & streak dengan multiplier yang
+          // sama seperti saat diberikan, supaya tidak bisa "diperah"
           const delta = taskDelta(task.value, 'down', task.difficulty);
-          const bonus = streakBonus(Math.max(0, task.streak - 1));
-          const xp = xpGain(delta, bonus);
-          const gold = goldGain(delta, bonus);
+          const bonus =
+            streakBonus(Math.max(0, task.streak - 1)) *
+            strMultiplier(playerStats(p).str);
+          const xp = xpGain(delta, bonus * eff.xpMult);
+          const gold = goldGain(delta, bonus * eff.goldMult);
           updated = {
             ...task,
             completed: false,
@@ -552,6 +577,7 @@ export const useGame = create<GameState>()(
           p.xp = Math.max(0, p.xp - xp);
           p.gold = Math.max(0, Math.round((p.gold - gold) * 100) / 100);
           p.totalTasksDone = Math.max(0, p.totalTasksDone - 1);
+          kd = regressKingdomProgress(kd);
           hist = { done: -1, xp: -xp, gold: -gold };
         }
 
@@ -589,14 +615,17 @@ export const useGame = create<GameState>()(
           p = applyGains(p, xp, gold, pushToast);
           p.totalTasksDone += 1;
           p = rollDrop(p, pushToast, eff.dropBonus);
-          kd = maybeGrowCitizens(kd, p.totalTasksDone, pushToast);
+          kd = maybeGrowCitizens(kd, pushToast);
           [kd, p] = progressThreat(kd, p, pushToast);
           hist = { done: 1, xp, gold };
           pushToast('xp', `+${xp} XP · +${gold.toFixed(1)} gold`);
         } else {
+          // batal centang: refund memakai multiplier yang sama seperti saat
+          // reward diberikan, dan progres kerajaan ikut mundur
           const delta = taskDelta(task.value, 'down', task.difficulty);
-          const xp = xpGain(delta);
-          const gold = goldGain(delta);
+          const strBonus = strMultiplier(playerStats(p).str);
+          const xp = xpGain(delta, strBonus * eff.xpMult);
+          const gold = goldGain(delta, strBonus * eff.goldMult);
           updated = {
             ...task,
             completed: false,
@@ -606,6 +635,7 @@ export const useGame = create<GameState>()(
           p.xp = Math.max(0, p.xp - xp);
           p.gold = Math.max(0, Math.round((p.gold - gold) * 100) / 100);
           p.totalTasksDone = Math.max(0, p.totalTasksDone - 1);
+          kd = regressKingdomProgress(kd);
           hist = { done: -1, xp: -xp, gold: -gold };
         }
 
@@ -1041,6 +1071,7 @@ export const useGame = create<GameState>()(
                       : data.kingdom.citizens ?? [],
                   decor: data.kingdom.decor ?? [],
                   threatsRepelled: data.kingdom.threatsRepelled ?? 0,
+                  recruitProgress: data.kingdom.recruitProgress ?? 0,
                 }
               : defaultKingdom(),
             achievements: data.achievements ?? {},
@@ -1069,7 +1100,7 @@ export const useGame = create<GameState>()(
     {
       name: 'habitquest-save',
       storage: createJSONStorage(() => offlineStorage),
-      version: 8,
+      version: 9,
       // save lama tetap terbaca: lengkapi field yang belum ada
       migrate: (persisted) => {
         const s = persisted as Partial<GameState>;
@@ -1089,6 +1120,7 @@ export const useGame = create<GameState>()(
         }
         s.kingdom.decor ??= [];
         s.kingdom.threatsRepelled ??= 0;
+        s.kingdom.recruitProgress ??= (s.player?.totalTasksDone ?? 0) % CITIZEN_EVERY;
         if (Array.isArray(s.tasks)) {
           s.tasks = s.tasks.map((t) => {
             if (t.type !== 'daily' && t.type !== 'todo') return t;

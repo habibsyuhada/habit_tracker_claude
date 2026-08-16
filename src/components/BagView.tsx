@@ -36,14 +36,16 @@ export function BagView() {
 
   return (
     <div className="bag">
-      {/* ---- perlengkapan ---- */}
-      <h3 className="section-title">⚔️ Perlengkapan</h3>
+      {/* ---- pusaka ---- */}
+      <h3 className="section-title">⚜️ Pusaka Kerajaan</h3>
       <div className="stat-summary">
         <span className="stat-str">
-          ⚔️ STR {stats.str} <em>(+{Math.round((strMultiplier(stats.str) - 1) * 100)}% XP & gold)</em>
+          👑 Wibawa {stats.str}{' '}
+          <em>(+{Math.round((strMultiplier(stats.str) - 1) * 100)}% kas & kemakmuran)</em>
         </span>
         <span className="stat-con">
-          🛡️ CON {stats.con} <em>(-{Math.round(conReduction(stats.con) * 100)}% damage)</em>
+          🛡️ Benteng {stats.con}{' '}
+          <em>(-{Math.round(conReduction(stats.con) * 100)}% damage moral)</em>
         </span>
       </div>
       {GEAR_SLOTS.map((slot) => {
@@ -79,8 +81,8 @@ export function BagView() {
       <h3 className="section-title">🐣 Penetasan</h3>
       {ownedEggs.length === 0 && ownedPotions.length === 0 ? (
         <p className="muted">
-          Selesaikan tugas untuk berpeluang menemukan telur 🥚 dan ramuan 🧪, lalu
-          tetaskan pet di sini!
+          Tunaikan titah untuk berpeluang menerima telur 🥚 dan ramuan 🧪 dari
+          rakyatmu, lalu tetaskan satwa kerajaan di sini!
         </p>
       ) : (
         <>
@@ -129,10 +131,10 @@ export function BagView() {
         </>
       )}
 
-      {/* ---- kandang pet ---- */}
-      <h3 className="section-title">🏡 Kandang Pet</h3>
+      {/* ---- satwa kerajaan ---- */}
+      <h3 className="section-title">🏡 Satwa Kerajaan</h3>
       {player.pets.length === 0 ? (
-        <p className="muted">Belum ada pet yang menetas.</p>
+        <p className="muted">Belum ada satwa yang menetas.</p>
       ) : (
         <div className="pet-grid">
           {player.pets.map((id) => {
@@ -156,7 +158,7 @@ export function BagView() {
         </div>
       )}
       <p className="muted pet-hint">
-        Pet aktif akan menemanimu di samping avatar. Ketuk pet untuk memilih.
+        Satwa kesayangan akan menemanimu di samping lambang. Ketuk untuk memilih.
       </p>
     </div>
   );

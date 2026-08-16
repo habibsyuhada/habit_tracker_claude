@@ -171,7 +171,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           </div>
           <div>
             <b>{player.deaths}</b>
-            <span>kali tumbang</span>
+            <span>krisis kerajaan</span>
           </div>
         </div>
 

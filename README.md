@@ -23,8 +23,8 @@ Semua data tersimpan **di perangkat** (Capacitor Preferences di Android/iOS, loc
 | **Kematian** | HP habis → turun 1 level, gold hangus, HP pulih |
 | **Naik level** | HP pulih penuh |
 | **Checklist** | Sub-tugas di Daily & To-Do; item tercentang mengurangi damage daily terlewat secara proporsional (seperti Habitica) |
-| **Equipment** | Toko gear di tab Rewards (tier per slot: senjata/zirah/helm/perisai); STR menambah XP & gold, CON mengurangi damage |
-| **Pets** | Telur & ramuan drop acak dari tugas selesai (dibatasi per hari), ditetaskan jadi pet; pet aktif tampil di samping avatar |
+| **Pusaka (equipment)** | Toko pusaka di tab Rewards (tier per slot: senjata/zirah/helm/perisai); 👑 Wibawa menambah kas & kemakmuran, 🛡️ Benteng mengurangi damage moral |
+| **Satwa kerajaan (pets)** | Telur & ramuan dipersembahkan acak saat titah selesai (dibatasi per hari), ditetaskan jadi satwa; satwa kesayangan tampil di samping lambang |
 | **Pengingat harian** | Notifikasi lokal (Capacitor Local Notifications) di jam pilihan — tetap 100% offline |
 | **Backup** | Ekspor/impor seluruh data sebagai JSON (share sheet di Android/iOS, unduhan di web) |
 | **Statistik** | Riwayat aktivitas harian: grafik tugas selesai & XP (14 hari), heatmap 12 minggu, plus ringkasan level/streak/koleksi |

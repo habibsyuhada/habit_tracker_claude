@@ -13,9 +13,9 @@ export function GearShop() {
   if (forSale.length === 0) {
     return (
       <div className="shop-section">
-        <h3 className="section-title">🏪 Toko Perlengkapan</h3>
+        <h3 className="section-title">🏪 Toko Pusaka Kerajaan</h3>
         <p className="muted shop-empty">
-          Semua perlengkapan sudah kamu miliki. Petualang sejati! 🏆
+          Semua pusaka sudah kamu miliki. Penguasa sejati! 🏆
         </p>
       </div>
     );
@@ -23,7 +23,7 @@ export function GearShop() {
 
   return (
     <div className="shop-section">
-      <h3 className="section-title">🏪 Toko Perlengkapan</h3>
+      <h3 className="section-title">🏪 Toko Pusaka Kerajaan</h3>
       {forSale.map((item) => (
         <div className="card gear-card" key={item.id}>
           <div className="gear-emoji">{item.emoji}</div>
@@ -31,8 +31,8 @@ export function GearShop() {
             <div className="card-title">{item.name}</div>
             <div className="card-meta">
               <span>{SLOT_LABEL[item.slot]}</span>
-              {item.str > 0 && <span className="stat-str">⚔️ STR +{item.str}</span>}
-              {item.con > 0 && <span className="stat-con">🛡️ CON +{item.con}</span>}
+              {item.str > 0 && <span className="stat-str">👑 Wibawa +{item.str}</span>}
+              {item.con > 0 && <span className="stat-con">🛡️ Benteng +{item.con}</span>}
             </div>
           </div>
           <button

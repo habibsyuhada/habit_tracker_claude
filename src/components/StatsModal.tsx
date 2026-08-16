@@ -332,11 +332,11 @@ export function StatsModal({ onClose }: { onClose: () => void }) {
           </div>
           <div>
             <b>{player.pets.length}</b>
-            <span>pet</span>
+            <span>satwa</span>
           </div>
           <div>
             <b>{player.ownedGear.length}</b>
-            <span>perlengkapan</span>
+            <span>pusaka</span>
           </div>
         </div>
 
