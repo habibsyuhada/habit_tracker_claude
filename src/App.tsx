@@ -3,6 +3,7 @@ import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import type { Task, TaskType } from './types';
 import { useGame } from './store/useGame';
+import { syncReminder } from './notifications';
 import { Header } from './components/Header';
 import { TaskItem } from './components/TaskItem';
 import { TaskModal } from './components/TaskModal';
@@ -38,6 +39,12 @@ export default function App() {
   useEffect(() => {
     if (!hydrated) return;
     runCron();
+
+    // pastikan jadwal pengingat tetap terpasang setelah reboot/update app
+    const { reminder } = useGame.getState();
+    if (Capacitor.isNativePlatform() && reminder.enabled) {
+      syncReminder(reminder.enabled, reminder.time).catch(() => {});
+    }
 
     const onVisible = () => document.visibilityState === 'visible' && runCron();
     document.addEventListener('visibilitychange', onVisible);

@@ -18,6 +18,9 @@ Semua data tersimpan **di perangkat** (Capacitor Preferences di Android/iOS, loc
 | **Cron / hari baru** | Saat app dibuka di hari baru: daily terlewat memberi damage HP & mereset streak, daily di-reset, nilai habit memudar. Semua daily selesai = 🌟 Perfect Day bonus |
 | **Kematian** | HP habis → turun 1 level, gold hangus, HP pulih |
 | **Naik level** | HP pulih penuh |
+| **Checklist** | Sub-tugas di Daily & To-Do; item tercentang mengurangi damage daily terlewat secara proporsional (seperti Habitica) |
+| **Pengingat harian** | Notifikasi lokal (Capacitor Local Notifications) di jam pilihan — tetap 100% offline |
+| **Backup** | Ekspor/impor seluruh data sebagai JSON (share sheet di Android/iOS, unduhan di web) |
 
 Mekanik "ampun": kalau app lama tidak dibuka, damage hanya ditagih maksimal 3 hari.
 
@@ -47,7 +50,8 @@ Dari Android Studio tinggal Run ▶ ke emulator/perangkat. Untuk iOS: `npx cap a
 
 ```
 src/
-├── types.ts               # Model data: Habit, Daily, Todo, Reward, Player
+├── types.ts               # Model data: Habit, Daily, Todo, Reward, Player, Checklist
+├── notifications.ts       # Pengingat harian via Capacitor Local Notifications
 ├── game/formulas.ts       # Rumus Habitica: kurva XP, task value delta, damage, streak, cron
 ├── store/
 │   ├── storage.ts         # Adapter Capacitor Preferences (offline-first)

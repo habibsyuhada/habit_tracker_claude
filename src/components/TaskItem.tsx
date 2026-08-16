@@ -1,4 +1,4 @@
-import type { Daily, Habit, Reward, Task, Todo } from '../types';
+import type { ChecklistItem, Daily, Habit, Reward, Task, Todo } from '../types';
 import { useGame } from '../store/useGame';
 import { valueColor } from '../game/formulas';
 
@@ -59,6 +59,35 @@ function HabitItem({ habit, onEdit }: { habit: Habit; onEdit: (t: Task) => void 
   );
 }
 
+function Checklist({ taskId, items }: { taskId: string; items: ChecklistItem[] }) {
+  const toggleChecklistItem = useGame((s) => s.toggleChecklistItem);
+  if (items.length === 0) return null;
+  return (
+    <div className="checklist" onClick={(e) => e.stopPropagation()}>
+      {items.map((it) => (
+        <button
+          key={it.id}
+          className={`cl-item ${it.done ? 'done' : ''}`}
+          onClick={() => toggleChecklistItem(taskId, it.id)}
+        >
+          <span className="cl-box">{it.done ? '✓' : ''}</span>
+          <span className="cl-text">{it.text}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function checklistBadge(items: ChecklistItem[]) {
+  if (items.length === 0) return null;
+  const done = items.filter((it) => it.done).length;
+  return (
+    <span className={done === items.length ? 'cl-badge full' : 'cl-badge'}>
+      ☑ {done}/{items.length}
+    </span>
+  );
+}
+
 function DailyItem({ daily, onEdit }: { daily: Daily; onEdit: (t: Task) => void }) {
   const toggleDaily = useGame((s) => s.toggleDaily);
   const color = valueColor(daily.value);
@@ -83,7 +112,9 @@ function DailyItem({ daily, onEdit }: { daily: Daily; onEdit: (t: Task) => void 
       <div className="card-body" onClick={() => onEdit(daily)}>
         <div className="card-title">{daily.title}</div>
         {daily.notes && <div className="card-notes">{daily.notes}</div>}
+        <Checklist taskId={daily.id} items={daily.checklist} />
         <div className="card-meta">
+          {checklistBadge(daily.checklist)}
           {daily.streak > 0 && <span className="streak">🔥 {daily.streak}</span>}
           <span className="repeat-days">
             {daily.repeat.every(Boolean)
@@ -122,12 +153,16 @@ function TodoItem({ todo, onEdit }: { todo: Todo; onEdit: (t: Task) => void }) {
       <div className="card-body" onClick={() => onEdit(todo)}>
         <div className="card-title">{todo.title}</div>
         {todo.notes && <div className="card-notes">{todo.notes}</div>}
-        {todo.dueDate && (
+        <Checklist taskId={todo.id} items={todo.checklist} />
+        {(todo.dueDate || todo.checklist.length > 0) && (
           <div className="card-meta">
-            <span className={overdue ? 'overdue' : ''}>
-              📅 {todo.dueDate}
-              {overdue ? ' — terlambat!' : ''}
-            </span>
+            {checklistBadge(todo.checklist)}
+            {todo.dueDate && (
+              <span className={overdue ? 'overdue' : ''}>
+                📅 {todo.dueDate}
+                {overdue ? ' — terlambat!' : ''}
+              </span>
+            )}
           </div>
         )}
       </div>

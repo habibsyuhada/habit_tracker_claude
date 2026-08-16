@@ -1,10 +1,12 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type {
+  ChecklistItem,
   Daily,
   Difficulty,
   Habit,
   Player,
+  ReminderSettings,
   Reward,
   Task,
   Toast,
@@ -40,12 +42,14 @@ export interface NewTaskInput {
   repeat?: boolean[];
   dueDate?: string;
   cost?: number;
+  checklist?: ChecklistItem[];
 }
 
 interface GameState {
   player: Player;
   tasks: Task[];
   lastCron: string;
+  reminder: ReminderSettings;
   toasts: Toast[];
   _hydrated: boolean;
 
@@ -56,10 +60,14 @@ interface GameState {
   scoreHabit: (id: string, direction: 'up' | 'down') => void;
   toggleDaily: (id: string) => void;
   toggleTodo: (id: string) => void;
+  toggleChecklistItem: (taskId: string, itemId: string) => void;
   buyReward: (id: string) => void;
 
   runCron: () => void;
   setProfile: (name: string, avatar: string) => void;
+  setReminder: (settings: ReminderSettings) => void;
+  exportData: () => string;
+  importData: (json: string) => boolean;
   resetAll: () => void;
 
   pushToast: (kind: Toast['kind'], text: string) => void;
@@ -116,6 +124,7 @@ const seedTasks = (): Task[] => {
       repeat: everyDay(),
       streak: 0,
       completed: false,
+      checklist: [],
     } satisfies Daily,
     {
       ...base,
@@ -125,6 +134,7 @@ const seedTasks = (): Task[] => {
       notes: 'Coba centang aku untuk dapat XP & gold!',
       difficulty: 'easy',
       completed: false,
+      checklist: [],
     } satisfies Todo,
     {
       ...base,
@@ -181,6 +191,7 @@ export const useGame = create<GameState>()(
       player: defaultPlayer(),
       tasks: seedTasks(),
       lastCron: dateKey(),
+      reminder: { enabled: false, time: '20:00' },
       toasts: [],
       _hydrated: false,
 
@@ -223,6 +234,7 @@ export const useGame = create<GameState>()(
               repeat: input.repeat ?? everyDay(),
               streak: 0,
               completed: false,
+              checklist: input.checklist ?? [],
             };
             break;
           case 'todo':
@@ -233,6 +245,7 @@ export const useGame = create<GameState>()(
               value: 0,
               completed: false,
               dueDate: input.dueDate || undefined,
+              checklist: input.checklist ?? [],
             };
             break;
           case 'reward':
@@ -369,6 +382,19 @@ export const useGame = create<GameState>()(
         }));
       },
 
+      toggleChecklistItem: (taskId, itemId) =>
+        set((s) => ({
+          tasks: s.tasks.map((t) => {
+            if (t.id !== taskId || (t.type !== 'daily' && t.type !== 'todo')) return t;
+            return {
+              ...t,
+              checklist: t.checklist.map((it) =>
+                it.id === itemId ? { ...it, done: !it.done } : it
+              ),
+            };
+          }),
+        })),
+
       buyReward: (id) => {
         const { tasks, player, pushToast } = get();
         const reward = tasks.find(
@@ -432,13 +458,24 @@ export const useGame = create<GameState>()(
             missedCount += 1;
             if (billableDays.includes(day)) {
               const delta = taskDelta(daily.value, 'down', daily.difficulty);
-              totalDamage += hpDamage(delta);
+              // ala Habitica: item checklist yang sudah dicentang
+              // mengurangi damage secara proporsional
+              const doneRatio =
+                daily.checklist.length > 0
+                  ? daily.checklist.filter((it) => it.done).length /
+                    daily.checklist.length
+                  : 0;
+              totalDamage += hpDamage(delta) * (1 - doneRatio);
               daily = { ...daily, value: daily.value + delta, streak: 0 };
             } else {
               daily = { ...daily, streak: 0 };
             }
           }
-          return { ...daily, completed: false };
+          return {
+            ...daily,
+            completed: false,
+            checklist: daily.checklist.map((it) => ({ ...it, done: false })),
+          };
         });
 
         let p = { ...player };
@@ -470,21 +507,80 @@ export const useGame = create<GameState>()(
           player: { ...s.player, name: name.trim() || 'Petualang', avatar },
         })),
 
+      setReminder: (settings) => set({ reminder: settings }),
+
+      exportData: () => {
+        const { player, tasks, lastCron, reminder } = get();
+        return JSON.stringify(
+          {
+            app: 'habitquest',
+            version: 2,
+            exportedAt: new Date().toISOString(),
+            player,
+            tasks,
+            lastCron,
+            reminder,
+          },
+          null,
+          2
+        );
+      },
+
+      importData: (json) => {
+        try {
+          const data = JSON.parse(json);
+          if (
+            data?.app !== 'habitquest' ||
+            !data.player ||
+            !Array.isArray(data.tasks)
+          ) {
+            get().pushToast('danger', 'File tidak valid — bukan backup HabitQuest');
+            return false;
+          }
+          set({
+            player: data.player,
+            tasks: data.tasks,
+            lastCron: data.lastCron ?? dateKey(),
+            reminder: data.reminder ?? { enabled: false, time: '20:00' },
+          });
+          get().pushToast('info', '📥 Backup berhasil dipulihkan!');
+          return true;
+        } catch {
+          get().pushToast('danger', 'File tidak bisa dibaca — pastikan JSON backup yang benar');
+          return false;
+        }
+      },
+
       resetAll: () =>
         set({
           player: defaultPlayer(),
           tasks: seedTasks(),
           lastCron: dateKey(),
+          reminder: { enabled: false, time: '20:00' },
           toasts: [],
         }),
     }),
     {
       name: 'habitquest-save',
       storage: createJSONStorage(() => offlineStorage),
+      version: 2,
+      // save lama (pra-checklist) tetap terbaca: lengkapi field yang belum ada
+      migrate: (persisted) => {
+        const s = persisted as Partial<GameState>;
+        if (Array.isArray(s.tasks)) {
+          s.tasks = s.tasks.map((t) => {
+            if (t.type !== 'daily' && t.type !== 'todo') return t;
+            return { ...t, checklist: t.checklist ?? [] };
+          });
+        }
+        s.reminder ??= { enabled: false, time: '20:00' };
+        return s;
+      },
       partialize: (s) => ({
         player: s.player,
         tasks: s.tasks,
         lastCron: s.lastCron,
+        reminder: s.reminder,
       }),
       onRehydrateStorage: () => () => {
         useGame.setState({ _hydrated: true });

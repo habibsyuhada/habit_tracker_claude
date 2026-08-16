@@ -2,6 +2,12 @@ export type TaskType = 'habit' | 'daily' | 'todo' | 'reward';
 
 export type Difficulty = 'trivial' | 'easy' | 'medium' | 'hard';
 
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  done: boolean;
+}
+
 interface BaseTask {
   id: string;
   title: string;
@@ -30,6 +36,7 @@ export interface Daily extends BaseTask {
   repeat: boolean[];
   streak: number;
   completed: boolean;
+  checklist: ChecklistItem[];
 }
 
 export interface Todo extends BaseTask {
@@ -39,6 +46,7 @@ export interface Todo extends BaseTask {
   completed: boolean;
   completedAt?: string;
   dueDate?: string;
+  checklist: ChecklistItem[];
 }
 
 export interface Reward extends BaseTask {
@@ -60,6 +68,12 @@ export interface Player {
   totalTasksDone: number;
   deaths: number;
   perfectDays: number;
+}
+
+export interface ReminderSettings {
+  enabled: boolean;
+  /** format "HH:MM" waktu lokal */
+  time: string;
 }
 
 export interface Toast {

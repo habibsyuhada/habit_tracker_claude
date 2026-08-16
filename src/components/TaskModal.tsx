@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Difficulty, Task, TaskType } from '../types';
+import type { ChecklistItem, Difficulty, Task, TaskType } from '../types';
 import { DIFFICULTY_LABEL } from '../game/formulas';
 import { useGame } from '../store/useGame';
 import { DAY_SHORT } from './TaskItem';
@@ -37,6 +37,14 @@ export function TaskModal({ task, defaultType, onClose }: Props) {
   );
   const [dueDate, setDueDate] = useState(task?.type === 'todo' ? task.dueDate ?? '' : '');
   const [cost, setCost] = useState(task?.type === 'reward' ? String(task.cost) : '10');
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(
+    task?.type === 'daily' || task?.type === 'todo' ? [...task.checklist] : []
+  );
+
+  const uid = () =>
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -46,12 +54,16 @@ export function TaskModal({ task, defaultType, onClose }: Props) {
 
   const save = () => {
     if (!title.trim()) return;
+    const cleanChecklist = checklist
+      .map((it) => ({ ...it, text: it.text.trim() }))
+      .filter((it) => it.text);
     if (task) {
       const patch: Record<string, unknown> = { title: title.trim(), notes: notes.trim() };
       if (type !== 'reward') patch.difficulty = difficulty;
       if (type === 'habit') Object.assign(patch, { up, down });
       if (type === 'daily') patch.repeat = repeat;
       if (type === 'todo') patch.dueDate = dueDate || undefined;
+      if (type === 'daily' || type === 'todo') patch.checklist = cleanChecklist;
       if (type === 'reward') patch.cost = Math.max(1, Number(cost) || 10);
       updateTask(task.id, patch as Partial<Task>);
     } else {
@@ -65,6 +77,7 @@ export function TaskModal({ task, defaultType, onClose }: Props) {
         repeat,
         dueDate: dueDate || undefined,
         cost: Math.max(1, Number(cost) || 10),
+        checklist: cleanChecklist,
       });
     }
     onClose();
@@ -162,6 +175,47 @@ export function TaskModal({ task, defaultType, onClose }: Props) {
             <span>Tenggat</span>
             <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </label>
+        )}
+
+        {(type === 'daily' || type === 'todo') && (
+          <div className="field">
+            <span>
+              Checklist
+              {type === 'daily' && (
+                <em className="field-hint"> — item tercentang mengurangi damage bila terlewat</em>
+              )}
+            </span>
+            {checklist.map((it, i) => (
+              <div className="cl-edit-row" key={it.id}>
+                <input
+                  value={it.text}
+                  placeholder={`Item ${i + 1}`}
+                  onChange={(e) =>
+                    setChecklist(
+                      checklist.map((c) =>
+                        c.id === it.id ? { ...c, text: e.target.value } : c
+                      )
+                    )
+                  }
+                />
+                <button
+                  className="icon-btn"
+                  onClick={() => setChecklist(checklist.filter((c) => c.id !== it.id))}
+                  aria-label="Hapus item"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            <button
+              className="btn ghost add-cl"
+              onClick={() =>
+                setChecklist([...checklist, { id: uid(), text: '', done: false }])
+              }
+            >
+              ＋ Tambah item
+            </button>
+          </div>
         )}
 
         {type === 'reward' && (
