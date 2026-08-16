@@ -84,6 +84,20 @@ export interface Player {
   dropsToday: number;
 }
 
+export interface KingdomLogEntry {
+  date: string;
+  text: string;
+}
+
+export interface Kingdom {
+  /** jumlah rakyat */
+  citizens: number;
+  /** id bangunan → level terbangun */
+  buildings: Record<string, number>;
+  /** catatan peristiwa kerajaan, terbaru di depan */
+  log: KingdomLogEntry[];
+}
+
 /** Agregat aktivitas satu hari, kunci = tanggal lokal yyyy-mm-dd */
 export interface DayStats {
   /** jumlah tugas diselesaikan (habit +, daily, todo) */

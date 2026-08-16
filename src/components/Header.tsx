@@ -1,6 +1,7 @@
 import { useGame } from '../store/useGame';
 import { xpToNextLevel } from '../game/formulas';
 import { parsePetId } from '../game/items';
+import { titleFor } from '../game/kingdom';
 
 interface Props {
   onOpenSettings: () => void;
@@ -31,14 +32,16 @@ export function Header({ onOpenSettings, onOpenStats }: Props) {
         </button>
         <div className="header-info">
           <div className="header-name-row">
-            <span className="player-name">{player.name}</span>
+            <span className="player-name">
+              {titleFor(player.level).title} {player.name}
+            </span>
             <span className="player-level">Lv {player.level}</span>
           </div>
           <div className="bar-group">
-            <div className="bar">
+            <div className="bar" title="Moral rakyat">
               <div className="bar-fill hp" style={{ width: `${hpPct}%` }} />
               <span className="bar-label">
-                ❤️ {player.hp.toFixed(1)} / {player.maxHp}
+                ❤️ Moral {player.hp.toFixed(1)} / {player.maxHp}
               </span>
             </div>
             <div className="bar">

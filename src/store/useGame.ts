@@ -40,7 +40,14 @@ import {
   playerStats,
   strMultiplier,
 } from '../game/items';
-import type { GearSlot } from '../types';
+import type { GearSlot, Kingdom } from '../types';
+import {
+  CITIZEN_EVERY,
+  BUILDING_BY_ID,
+  buildingCost,
+  kingdomEffects,
+  rollKingdomEvent,
+} from '../game/kingdom';
 
 const uid = () =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -67,6 +74,7 @@ interface GameState {
   reminder: ReminderSettings;
   /** riwayat aktivitas per hari untuk statistik, kunci yyyy-mm-dd */
   history: Record<string, DayStats>;
+  kingdom: Kingdom;
   toasts: Toast[];
   _hydrated: boolean;
 
@@ -85,6 +93,7 @@ interface GameState {
   unequipGear: (slot: GearSlot) => void;
   hatchPet: (speciesId: string, potionId: string) => void;
   setActivePet: (petId?: string) => void;
+  buildBuilding: (buildingId: string) => void;
 
   runCron: () => void;
   setProfile: (name: string, avatar: string) => void;
@@ -118,6 +127,24 @@ const defaultPlayer = (): Player => ({
 });
 
 const everyDay = () => [true, true, true, true, true, true, true];
+
+const defaultKingdom = (): Kingdom => ({
+  citizens: 3,
+  buildings: {},
+  log: [],
+});
+
+/** Rakyat baru datang tiap kelipatan CITIZEN_EVERY tugas selesai. */
+function maybeGrowCitizens(
+  kingdom: Kingdom,
+  totalTasksDone: number,
+  push: (kind: Toast['kind'], text: string) => void
+): Kingdom {
+  if (totalTasksDone <= 0 || totalTasksDone % CITIZEN_EVERY !== 0) return kingdom;
+  const next = { ...kingdom, citizens: kingdom.citizens + 1 };
+  push('level', `🧑‍🌾 Rakyat baru bergabung dengan kerajaanmu! (${next.citizens} jiwa)`);
+  return next;
+}
 
 const seedTasks = (): Task[] => {
   const now = new Date().toISOString();
@@ -222,9 +249,10 @@ function bumpHistory(
  */
 function rollDrop(
   player: Player,
-  push: (kind: Toast['kind'], text: string) => void
+  push: (kind: Toast['kind'], text: string) => void,
+  extraCap = 0
 ): Player {
-  if (player.dropsToday >= MAX_DROPS_PER_DAY) return player;
+  if (player.dropsToday >= MAX_DROPS_PER_DAY + extraCap) return player;
   if (Math.random() > DROP_CHANCE) return player;
 
   const p = { ...player, dropsToday: player.dropsToday + 1 };
@@ -252,7 +280,10 @@ function applyDeathIfNeeded(
   p.xp = 0;
   p.hp = p.maxHp;
   p.deaths += 1;
-  push('danger', '💀 Kamu tumbang! Turun 1 level dan gold hangus. Bangkit lagi!');
+  push(
+    'danger',
+    '💀 Krisis kerajaan! Moral rakyat runtuh — gelarmu turun dan kas dikuras. Bangkit lagi!'
+  );
   return p;
 }
 
@@ -264,6 +295,7 @@ export const useGame = create<GameState>()(
       lastCron: dateKey(),
       reminder: { enabled: false, time: '20:00' },
       history: {},
+      kingdom: defaultKingdom(),
       toasts: [],
       _hydrated: false,
 
@@ -351,20 +383,24 @@ export const useGame = create<GameState>()(
         };
 
         let p = { ...player };
+        let kd = get().kingdom;
         let hist = { done: 0, xp: 0, gold: 0 };
         const stats = playerStats(p);
+        const eff = kingdomEffects(kd.buildings);
         if (direction === 'up') {
-          const strBonus = strMultiplier(stats.str);
-          const xp = xpGain(delta, strBonus);
-          const gold = goldGain(delta, strBonus);
+          const xp = xpGain(delta, strMultiplier(stats.str) * eff.xpMult);
+          const gold = goldGain(delta, strMultiplier(stats.str) * eff.goldMult);
           p = applyGains(p, xp, gold, pushToast);
           p.totalTasksDone += 1;
-          p = rollDrop(p, pushToast);
+          p = rollDrop(p, pushToast, eff.dropBonus);
+          kd = maybeGrowCitizens(kd, p.totalTasksDone, pushToast);
           hist = { done: 1, xp, gold };
           pushToast('xp', `+${xp} XP · +${gold.toFixed(1)} gold`);
         } else {
           const dmg =
-            Math.round(hpDamage(delta) * (1 - conReduction(stats.con)) * 10) / 10;
+            Math.round(
+              hpDamage(delta) * (1 - conReduction(stats.con)) * eff.damageMult * 10
+            ) / 10;
           p.hp = Math.max(0, Math.round((p.hp - dmg) * 10) / 10);
           pushToast('hp', `-${dmg.toFixed(1)} HP`);
           p = applyDeathIfNeeded(p, pushToast);
@@ -372,6 +408,7 @@ export const useGame = create<GameState>()(
 
         set((s) => ({
           player: p,
+          kingdom: kd,
           tasks: s.tasks.map((t) => (t.id === id ? updated : t)),
           history: bumpHistory(s.history, hist),
         }));
@@ -383,15 +420,17 @@ export const useGame = create<GameState>()(
         if (!task) return;
 
         let p = { ...player };
+        let kd = get().kingdom;
         let updated: Daily;
         let hist: { done: number; xp: number; gold: number };
+        const eff = kingdomEffects(kd.buildings);
 
         if (!task.completed) {
           const delta = taskDelta(task.value, 'up', task.difficulty);
           const bonus =
             streakBonus(task.streak) * strMultiplier(playerStats(p).str);
-          const xp = xpGain(delta, bonus);
-          const gold = goldGain(delta, bonus);
+          const xp = xpGain(delta, bonus * eff.xpMult);
+          const gold = goldGain(delta, bonus * eff.goldMult);
           updated = {
             ...task,
             completed: true,
@@ -400,7 +439,8 @@ export const useGame = create<GameState>()(
           };
           p = applyGains(p, xp, gold, pushToast);
           p.totalTasksDone += 1;
-          p = rollDrop(p, pushToast);
+          p = rollDrop(p, pushToast, eff.dropBonus);
+          kd = maybeGrowCitizens(kd, p.totalTasksDone, pushToast);
           hist = { done: 1, xp, gold };
           const streakNote = updated.streak > 1 ? ` · 🔥 streak ${updated.streak}` : '';
           pushToast('xp', `+${xp} XP · +${gold.toFixed(1)} gold${streakNote}`);
@@ -424,6 +464,7 @@ export const useGame = create<GameState>()(
 
         set((s) => ({
           player: p,
+          kingdom: kd,
           tasks: s.tasks.map((t) => (t.id === id ? updated : t)),
           history: bumpHistory(s.history, hist),
         }));
@@ -435,14 +476,16 @@ export const useGame = create<GameState>()(
         if (!task) return;
 
         let p = { ...player };
+        let kd = get().kingdom;
         let updated: Todo;
         let hist: { done: number; xp: number; gold: number };
+        const eff = kingdomEffects(kd.buildings);
 
         if (!task.completed) {
           const delta = taskDelta(task.value, 'up', task.difficulty);
           const strBonus = strMultiplier(playerStats(p).str);
-          const xp = xpGain(delta, strBonus);
-          const gold = goldGain(delta, strBonus);
+          const xp = xpGain(delta, strBonus * eff.xpMult);
+          const gold = goldGain(delta, strBonus * eff.goldMult);
           updated = {
             ...task,
             completed: true,
@@ -451,7 +494,8 @@ export const useGame = create<GameState>()(
           };
           p = applyGains(p, xp, gold, pushToast);
           p.totalTasksDone += 1;
-          p = rollDrop(p, pushToast);
+          p = rollDrop(p, pushToast, eff.dropBonus);
+          kd = maybeGrowCitizens(kd, p.totalTasksDone, pushToast);
           hist = { done: 1, xp, gold };
           pushToast('xp', `+${xp} XP · +${gold.toFixed(1)} gold`);
         } else {
@@ -472,6 +516,7 @@ export const useGame = create<GameState>()(
 
         set((s) => ({
           player: p,
+          kingdom: kd,
           tasks: s.tasks.map((t) => (t.id === id ? updated : t)),
           history: bumpHistory(s.history, hist),
         }));
@@ -573,6 +618,45 @@ export const useGame = create<GameState>()(
       setActivePet: (id) =>
         set((s) => ({ player: { ...s.player, activePet: id } })),
 
+      buildBuilding: (buildingId) => {
+        const { player, kingdom, pushToast } = get();
+        const def = BUILDING_BY_ID[buildingId];
+        if (!def) return;
+        const curLevel = kingdom.buildings[buildingId] ?? 0;
+        if (curLevel >= def.maxLevel) return;
+        if (kingdom.citizens < def.minCitizens) {
+          pushToast('info', `Butuh ${def.minCitizens} rakyat untuk membangun ${def.name}`);
+          return;
+        }
+        const cost = buildingCost(def, curLevel);
+        if (player.gold < cost) {
+          pushToast('info', `Kas belum cukup — butuh ${cost} 🪙`);
+          return;
+        }
+        const newLevel = curLevel + 1;
+        set((s) => ({
+          player: {
+            ...s.player,
+            gold: Math.round((s.player.gold - cost) * 100) / 100,
+          },
+          kingdom: {
+            ...s.kingdom,
+            buildings: { ...s.kingdom.buildings, [buildingId]: newLevel },
+            log: [
+              {
+                date: dateKey(),
+                text: `${def.emoji} ${def.name}${newLevel > 1 ? ` Lv ${newLevel}` : ''} selesai dibangun!`,
+              },
+              ...s.kingdom.log,
+            ].slice(0, 14),
+          },
+        }));
+        pushToast(
+          'level',
+          `${def.emoji} ${def.name}${newLevel > 1 ? ` naik ke Lv ${newLevel}` : ' berdiri'}!`
+        );
+      },
+
       /**
        * "Cron" ala Habitica: dijalankan saat app dibuka / kembali aktif.
        * Untuk tiap hari yang terlewat: daily yang jatuh tempo tapi tidak
@@ -638,25 +722,55 @@ export const useGame = create<GameState>()(
         });
 
         let p = { ...player, dropsToday: 0 };
+        let kd = { ...get().kingdom };
+        const eff = kingdomEffects(kd.buildings);
         if (totalDamage > 0) {
           totalDamage =
-            Math.round(totalDamage * (1 - conReduction(playerStats(p).con)) * 10) / 10;
+            Math.round(
+              totalDamage *
+                (1 - conReduction(playerStats(p).con)) *
+                eff.damageMult *
+                10
+            ) / 10;
           p.hp = Math.max(0, Math.round((p.hp - totalDamage) * 10) / 10);
           pushToast(
             'hp',
-            `🌙 Hari baru: ${missedCount} daily terlewat, -${totalDamage.toFixed(1)} HP`
+            `🌙 Hari baru: ${missedCount} titah terbengkalai, moral rakyat -${totalDamage.toFixed(1)}`
           );
           p = applyDeathIfNeeded(p, pushToast);
-        } else if (perfectDay) {
+        }
+
+        let wasPerfect = false;
+        if (totalDamage <= 0 && perfectDay) {
           const dueYesterday = tasks.some(
             (t) =>
               t.type === 'daily' && t.repeat[parseDateKey(days[0]).getDay()]
           );
           if (dueYesterday) {
+            wasPerfect = true;
             p.perfectDays += 1;
             p = applyGains(p, 15, 5, pushToast);
-            pushToast('level', '🌟 Perfect Day! Bonus +15 XP & +5 gold');
+            pushToast('level', '🌟 Hari Sempurna! Bonus +15 XP & +5 gold');
           }
+        }
+
+        // event kerajaan pergantian hari
+        if (days.length > 0) {
+          const event = rollKingdomEvent(wasPerfect, missedCount, p.level);
+          if (event.gold) {
+            p.gold = Math.round((p.gold + event.gold) * 100) / 100;
+          }
+          if (event.moral) {
+            p.hp = Math.min(p.maxHp, Math.round((p.hp + event.moral) * 10) / 10);
+          }
+          if (event.citizens) {
+            kd = { ...kd, citizens: kd.citizens + event.citizens };
+          }
+          kd = {
+            ...kd,
+            log: [{ date: today, text: event.text }, ...kd.log].slice(0, 14),
+          };
+          pushToast('info', event.text);
         }
 
         // riwayat dibatasi 180 hari terakhir supaya save tetap ramping
@@ -668,7 +782,13 @@ export const useGame = create<GameState>()(
               )
             : get().history;
 
-        set({ player: p, tasks: newTasks, lastCron: today, history: trimmed });
+        set({
+          player: p,
+          kingdom: kd,
+          tasks: newTasks,
+          lastCron: today,
+          history: trimmed,
+        });
       },
 
       setProfile: (name, avatar) =>
@@ -679,17 +799,18 @@ export const useGame = create<GameState>()(
       setReminder: (settings) => set({ reminder: settings }),
 
       exportData: () => {
-        const { player, tasks, lastCron, reminder, history } = get();
+        const { player, tasks, lastCron, reminder, history, kingdom } = get();
         return JSON.stringify(
           {
             app: 'habitquest',
-            version: 4,
+            version: 5,
             exportedAt: new Date().toISOString(),
             player,
             tasks,
             lastCron,
             reminder,
             history,
+            kingdom,
           },
           null,
           2
@@ -718,6 +839,7 @@ export const useGame = create<GameState>()(
             lastCron: data.lastCron ?? dateKey(),
             reminder: data.reminder ?? { enabled: false, time: '20:00' },
             history: data.history ?? {},
+            kingdom: data.kingdom ?? defaultKingdom(),
           });
           get().pushToast('info', '📥 Backup berhasil dipulihkan!');
           return true;
@@ -734,17 +856,19 @@ export const useGame = create<GameState>()(
           lastCron: dateKey(),
           reminder: { enabled: false, time: '20:00' },
           history: {},
+          kingdom: defaultKingdom(),
           toasts: [],
         }),
     }),
     {
       name: 'habitquest-save',
       storage: createJSONStorage(() => offlineStorage),
-      version: 4,
+      version: 5,
       // save lama tetap terbaca: lengkapi field yang belum ada
       migrate: (persisted) => {
         const s = persisted as Partial<GameState>;
         s.history ??= {};
+        s.kingdom ??= defaultKingdom();
         if (Array.isArray(s.tasks)) {
           s.tasks = s.tasks.map((t) => {
             if (t.type !== 'daily' && t.type !== 'todo') return t;
@@ -772,6 +896,7 @@ export const useGame = create<GameState>()(
         lastCron: s.lastCron,
         reminder: s.reminder,
         history: s.history,
+        kingdom: s.kingdom,
       }),
       onRehydrateStorage: () => () => {
         useGame.setState({ _hydrated: true });

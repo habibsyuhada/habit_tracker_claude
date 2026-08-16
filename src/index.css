@@ -642,6 +642,107 @@ textarea {
   margin: 2px 2px 0;
 }
 
+/* ---------- kerajaan ---------- */
+.kingdom {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.realm-card {
+  background: linear-gradient(150deg, var(--purple-500), var(--purple-600));
+  color: #fff;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+}
+
+.realm-title {
+  font-size: 16.5px;
+  font-weight: 800;
+}
+
+.realm-sub {
+  font-size: 13px;
+  opacity: 0.9;
+  margin-top: 3px;
+}
+
+.realm-bonuses {
+  font-size: 12.5px;
+  margin-top: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+.realm-map {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  background: #dcedc8;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 10px;
+}
+
+.realm-tile {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  background: #eaf5dc;
+  border-radius: 8px;
+}
+
+.map-hint {
+  font-size: 12px;
+  margin: 0 4px;
+}
+
+.bld-level {
+  font-size: 12px;
+  color: var(--purple-500);
+  font-weight: 700;
+}
+
+.bld-maxed {
+  align-self: center;
+  margin-right: 14px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--green);
+  letter-spacing: 0.5px;
+}
+
+.chronicle {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 6px 14px;
+}
+
+.chronicle-row {
+  display: flex;
+  gap: 10px;
+  padding: 7px 0;
+  font-size: 13px;
+  border-bottom: 1px solid #f0edf5;
+}
+
+.chronicle-row:last-child {
+  border-bottom: none;
+}
+
+.chronicle-date {
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 11.5px;
+  flex-shrink: 0;
+  padding-top: 1px;
+}
+
 /* ---------- FAB & tabbar ---------- */
 .fab {
   position: fixed;

@@ -1,6 +1,10 @@
-# ⚔️ HabitQuest
+# 🏰 HabitQuest — Kerajaan Mini
 
-Habit tracker RPG **offline-first** hasil reverse engineering mekanik [Habitica](https://habitica.com), dibangun dengan **React + Vite + TypeScript + Capacitor**.
+Habit tracker RPG **offline-first** dengan identitas sendiri: kamu adalah penguasa
+kerajaan kecil, dan **tugas-tugasmu adalah titah kerajaan**. Rakyat berdatangan saat
+kamu produktif, bangunan memberi bonus ekonomi nyata, dan tiap pergantian hari
+terjadi event kerajaan. Fondasi mekaniknya hasil reverse engineering
+[Habitica](https://habitica.com), dibangun dengan **React + Vite + TypeScript + Capacitor**.
 
 Semua data tersimpan **di perangkat** (Capacitor Preferences di Android/iOS, localStorage di web) — tidak ada server, tidak butuh internet sama sekali.
 
@@ -24,6 +28,7 @@ Semua data tersimpan **di perangkat** (Capacitor Preferences di Android/iOS, loc
 | **Pengingat harian** | Notifikasi lokal (Capacitor Local Notifications) di jam pilihan — tetap 100% offline |
 | **Backup** | Ekspor/impor seluruh data sebagai JSON (share sheet di Android/iOS, unduhan di web) |
 | **Statistik** | Riwayat aktivitas harian: grafik tugas selesai & XP (14 hari), heatmap 12 minggu, plus ringkasan level/streak/koleksi |
+| **Kerajaan** | Tiap 4 tugas selesai = 1 rakyat baru; 7 bangunan dengan efek pasif (kas/kemakmuran/pertahanan/drop); gelar dari Kepala Dusun sampai Kaisar; peta wilayah yang tumbuh; event kerajaan tiap pergantian hari; kronik peristiwa |
 
 Mekanik "ampun": kalau app lama tidak dibuka, damage hanya ditagih maksimal 3 hari.
 
@@ -57,13 +62,15 @@ src/
 ├── notifications.ts       # Pengingat harian via Capacitor Local Notifications
 ├── game/formulas.ts       # Rumus Habitica: kurva XP, task value delta, damage, streak, cron
 ├── game/items.ts          # Katalog gear (STR/CON), spesies pet, ramuan, aturan drop
+├── game/kingdom.ts        # Gelar, katalog bangunan + efek, event harian, peta wilayah
 ├── store/
 │   ├── storage.ts         # Adapter Capacitor Preferences (offline-first)
 │   └── useGame.ts         # Zustand store + persist: seluruh state & aksi game
 ├── components/
 │   ├── Header.tsx         # Avatar (+pet aktif), HP bar, XP bar, gold
 │   ├── GearShop.tsx       # Toko perlengkapan di tab Rewards
-│   ├── BagView.tsx        # Tab Tas: equip gear, penetasan, kandang pet
+│   ├── KingdomView.tsx    # Tab Kerajaan: peta, pembangunan, kronik, gudang
+│   ├── BagView.tsx        # Gudang: equip gear, penetasan, kandang pet
 │   ├── StatsModal.tsx     # Statistik: bar chart, area XP, heatmap (SVG)
 │   ├── TaskItem.tsx       # Kartu Habit / Daily / To-Do / Reward
 │   ├── TaskModal.tsx      # Form buat/edit tugas

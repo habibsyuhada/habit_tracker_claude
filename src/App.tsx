@@ -11,7 +11,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { StatsModal } from './components/StatsModal';
 import { Toasts } from './components/Toasts';
 import { GearShop } from './components/GearShop';
-import { BagView } from './components/BagView';
+import { KingdomView } from './components/KingdomView';
 
 type Tab = TaskType | 'bag';
 
@@ -20,7 +20,7 @@ const TABS: { type: Tab; label: string; icon: string }[] = [
   { type: 'daily', label: 'Dailies', icon: '📅' },
   { type: 'todo', label: 'To-Dos', icon: '✅' },
   { type: 'reward', label: 'Rewards', icon: '🎁' },
-  { type: 'bag', label: 'Tas', icon: '🎒' },
+  { type: 'bag', label: 'Kerajaan', icon: '🏰' },
 ];
 
 const EMPTY_HINT: Record<Tab, string> = {
@@ -101,7 +101,7 @@ export default function App() {
 
       <main className="task-list">
         {tab === 'bag' ? (
-          <BagView />
+          <KingdomView />
         ) : (
           <>
             {visible.length === 0 && (
