@@ -114,7 +114,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   {
     id: 'decorAll', name: 'Wilayah Permai', emoji: '🌈',
     desc: 'Pasang seluruh 6 dekorasi',
-    cond: (s) => s.kingdom.decor.length >= 6,
+    cond: (s) =>
+      Object.values(s.kingdom.decor).filter((l) => l > 0).length >= 6,
   },
   {
     id: 'rich', name: 'Kas Melimpah', emoji: '💰',

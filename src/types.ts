@@ -96,8 +96,8 @@ export interface Kingdom {
   citizens: Citizen[];
   /** id bangunan → level terbangun */
   buildings: Record<string, number>;
-  /** dekorasi yang sudah dibeli */
-  decor: string[];
+  /** id dekorasi → level terpasang */
+  decor: Record<string, number>;
   /** ancaman yang sedang aktif (bila ada) */
   threat?: ActiveThreat;
   /** jumlah ancaman yang berhasil ditangkal */

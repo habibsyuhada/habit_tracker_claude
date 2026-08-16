@@ -8,6 +8,7 @@ import {
   titleFor,
 } from '../game/kingdom';
 import { dateKey, parseDateKey } from '../game/formulas';
+import { PixelSprite } from './PixelSprite';
 
 /** Tab Kerajaan: wilayah, ancaman, peta, rakyat, dan kronik. */
 export function KingdomView() {
@@ -82,11 +83,11 @@ export function KingdomView() {
         </div>
       )}
 
-      {/* ---- peta ---- */}
+      {/* ---- peta pixel-art ---- */}
       <div className="realm-map">
         {tiles.map((t, i) => (
           <span key={i} className="realm-tile">
-            {t}
+            <PixelSprite sprite={t} size="100%" />
           </span>
         ))}
       </div>

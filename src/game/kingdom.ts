@@ -255,19 +255,25 @@ export interface DecorDef {
   id: string;
   name: string;
   emoji: string;
-  cost: number;
+  /** biaya level 1; tiap level berikutnya ×1.7 */
+  baseCost: number;
+  maxLevel: number;
 }
 
 export const DECOR: DecorDef[] = [
-  { id: 'garden', name: 'Taman Bunga', emoji: '🌸', cost: 15 },
-  { id: 'lantern', name: 'Lentera Batu', emoji: '🏮', cost: 20 },
-  { id: 'statue', name: 'Patung Pahlawan', emoji: '🗿', cost: 35 },
-  { id: 'pond', name: 'Kolam Teratai', emoji: '🪷', cost: 30 },
-  { id: 'windmill', name: 'Kincir Angin', emoji: '🪁', cost: 45 },
-  { id: 'rainbow', name: 'Gerbang Pelangi', emoji: '🌈', cost: 60 },
+  { id: 'garden', name: 'Taman Bunga', emoji: '🌸', baseCost: 15, maxLevel: 3 },
+  { id: 'lantern', name: 'Lentera Batu', emoji: '🏮', baseCost: 20, maxLevel: 3 },
+  { id: 'pond', name: 'Kolam Teratai', emoji: '🪷', baseCost: 30, maxLevel: 3 },
+  { id: 'statue', name: 'Patung Pahlawan', emoji: '🗿', baseCost: 35, maxLevel: 3 },
+  { id: 'windmill', name: 'Kincir Angin', emoji: '🪁', baseCost: 45, maxLevel: 3 },
+  { id: 'rainbow', name: 'Gerbang Pelangi', emoji: '🌈', baseCost: 60, maxLevel: 3 },
 ];
 
 export const DECOR_BY_ID = Object.fromEntries(DECOR.map((d) => [d.id, d]));
+
+export function decorCost(def: DecorDef, currentLevel: number): number {
+  return Math.round(def.baseCost * Math.pow(1.7, currentLevel));
+}
 
 // ---------- event kerajaan harian ----------
 
@@ -323,23 +329,26 @@ export function rollKingdomEvent(
 
 // ---------- peta kerajaan ----------
 
-const TREES = ['🌳', '🌲', '🌿', '🌳', '🌾'];
+const NATURE = ['tree', 'grass', 'pine', 'grass', 'flower'];
 
 /**
- * Susun peta tile kerajaan dari state — deterministik supaya peta stabil:
- * bangunan yang berdiri, rumah rakyat (1 per 3 jiwa), sisanya alam.
+ * Susun peta tile kerajaan dari state — deterministik supaya peta stabil.
+ * Tiap tile adalah kunci sprite pixel-art (lihat game/sprites.ts):
+ * bangunan & dekorasi memakai varian sesuai levelnya, rumah rakyat
+ * (1 per 3 jiwa), sisanya alam.
  */
 export function buildMap(kingdom: Kingdom): string[] {
   const placed: string[] = [];
   for (const def of BUILDINGS) {
-    if ((kingdom.buildings[def.id] ?? 0) > 0) placed.push(def.emoji);
+    const lvl = kingdom.buildings[def.id] ?? 0;
+    if (lvl > 0) placed.push(`${def.id}${Math.min(lvl, def.maxLevel)}`);
   }
-  for (const id of kingdom.decor) {
-    const def = DECOR_BY_ID[id];
-    if (def) placed.push(def.emoji);
+  for (const def of DECOR) {
+    const lvl = kingdom.decor[def.id] ?? 0;
+    if (lvl > 0) placed.push(`${def.id}${Math.min(lvl, def.maxLevel)}`);
   }
   const houses = Math.floor(kingdom.citizens.length / 3);
-  for (let i = 0; i < houses; i++) placed.push('🏠');
+  for (let i = 0; i < houses; i++) placed.push('house');
 
   const total = Math.max(21, Math.ceil((placed.length + 6) / 7) * 7);
   const tiles: string[] = new Array(total).fill('');
@@ -351,7 +360,7 @@ export function buildMap(kingdom: Kingdom): string[] {
     pos += 5;
   }
   for (let i = 0; i < total; i++) {
-    if (!tiles[i]) tiles[i] = TREES[(i * 7 + 3) % TREES.length];
+    if (!tiles[i]) tiles[i] = NATURE[(i * 7 + 3) % NATURE.length];
   }
   return tiles;
 }

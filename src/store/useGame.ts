@@ -35,6 +35,7 @@ import {
   CITIZEN_EVERY,
   BUILDING_BY_ID,
   DECOR_BY_ID,
+  decorCost,
   JOB_BY_ID,
   THREAT_BY_ID,
   THREAT_CHANCE,
@@ -126,7 +127,7 @@ const everyDay = () => [true, true, true, true, true, true, true];
 const defaultKingdom = (): Kingdom => ({
   citizens: [newCitizen(), newCitizen(), newCitizen()],
   buildings: {},
-  decor: [],
+  decor: {},
   threatsRepelled: 0,
   recruitProgress: 0,
   log: [],
@@ -662,26 +663,36 @@ export const useGame = create<GameState>()(
       buyDecor: (decorId) => {
         const { player, kingdom, pushToast } = get();
         const def = DECOR_BY_ID[decorId];
-        if (!def || kingdom.decor.includes(decorId)) return;
-        if (player.gold < def.cost) {
-          pushToast('info', `Kas belum cukup — butuh ${def.cost} 🪙`);
+        if (!def) return;
+        const curLevel = kingdom.decor[decorId] ?? 0;
+        if (curLevel >= def.maxLevel) return;
+        const cost = decorCost(def, curLevel);
+        if (player.gold < cost) {
+          pushToast('info', `Kas belum cukup — butuh ${cost} 🪙`);
           return;
         }
+        const newLevel = curLevel + 1;
         set((s) => ({
           player: {
             ...s.player,
-            gold: Math.round((s.player.gold - def.cost) * 100) / 100,
+            gold: Math.round((s.player.gold - cost) * 100) / 100,
           },
           kingdom: {
             ...s.kingdom,
-            decor: [...s.kingdom.decor, decorId],
+            decor: { ...s.kingdom.decor, [decorId]: newLevel },
             log: [
-              { date: dateKey(), text: `${def.emoji} ${def.name} mempercantik wilayah!` },
+              {
+                date: dateKey(),
+                text: `${def.emoji} ${def.name}${newLevel > 1 ? ` Lv ${newLevel}` : ''} mempercantik wilayah!`,
+              },
               ...s.kingdom.log,
             ].slice(0, 14),
           },
         }));
-        pushToast('level', `${def.emoji} ${def.name} terpasang di petamu!`);
+        pushToast(
+          'level',
+          `${def.emoji} ${def.name}${newLevel > 1 ? ` naik ke Lv ${newLevel}` : ' terpasang'}!`
+        );
         get().checkAchievements();
       },
 
@@ -950,7 +961,11 @@ export const useGame = create<GameState>()(
                     typeof data.kingdom.citizens === 'number'
                       ? Array.from({ length: data.kingdom.citizens }, () => newCitizen())
                       : data.kingdom.citizens ?? [],
-                  decor: data.kingdom.decor ?? [],
+                  decor: Array.isArray(data.kingdom.decor)
+                    ? Object.fromEntries(
+                        (data.kingdom.decor as string[]).map((id) => [id, 1])
+                      )
+                    : data.kingdom.decor ?? {},
                   threatsRepelled: data.kingdom.threatsRepelled ?? 0,
                   recruitProgress: data.kingdom.recruitProgress ?? 0,
                 }
@@ -985,7 +1000,7 @@ export const useGame = create<GameState>()(
     {
       name: 'habitquest-save',
       storage: createJSONStorage(() => offlineStorage),
-      version: 10,
+      version: 11,
       // save lama tetap terbaca: lengkapi field yang belum ada
       migrate: (persisted) => {
         const s = persisted as Partial<GameState>;
@@ -1003,7 +1018,13 @@ export const useGame = create<GameState>()(
             citizens: Array.from({ length: count }, () => newCitizen()),
           };
         }
-        s.kingdom.decor ??= [];
+        s.kingdom.decor ??= {};
+        // v11: dekorasi kini berlevel — konversi daftar lama jadi level 1
+        if (Array.isArray(s.kingdom.decor)) {
+          s.kingdom.decor = Object.fromEntries(
+            (s.kingdom.decor as unknown as string[]).map((id) => [id, 1])
+          );
+        }
         s.kingdom.threatsRepelled ??= 0;
         s.kingdom.recruitProgress ??= (s.player?.totalTasksDone ?? 0) % CITIZEN_EVERY;
         if (Array.isArray(s.tasks)) {

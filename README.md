@@ -30,7 +30,8 @@ Semua data tersimpan **di perangkat** (Capacitor Preferences di Android/iOS, loc
 | **Kerajaan** | Tiap 4 tugas selesai = 1 rakyat baru; 7 bangunan dengan efek pasif (kas/kemakmuran/pertahanan/peringatan dini); gelar dari Kepala Dusun sampai Kaisar; peta wilayah yang tumbuh; event kerajaan tiap pergantian hari; kronik peristiwa |
 | **Rakyat & profesi** | Rakyat punya nama & profesi (Petani/Penambang/Pujangga/Tabib/Penjaga) dengan penghasilan pasif harian: kas, kemakmuran, atau pemulihan moral |
 | **Ancaman** | Serigala, bandit, wabah, sampai naga bisa muncul — tangkal dengan menyelesaikan N titah sebelum tenggat; berhasil = hadiah gold, gagal = moral rakyat diserang. Menara Jaga menambah hari tenggat |
-| **Dekorasi** | 6 dekorasi kosmetik (taman bunga, patung, gerbang pelangi, ...) untuk mempercantik peta wilayah |
+| **Dekorasi** | 6 dekorasi kosmetik berlevel (Lv 1–3, biaya ×1.7 per level) yang makin megah di peta |
+| **Peta pixel-art** | Peta wilayah digambar dengan sprite pixel-art 12×12 buatan tangan (di-render SVG crispEdges, nol file aset); bangunan & dekorasi punya sprite berbeda per level |
 | **Onboarding** | Cerita pembuka 3 babak untuk pemain baru: kisah kerajaan, penjelasan titah, dan penobatan (nama + lambang) |
 | **Haptics** | Getaran kontekstual via Capacitor Haptics: halus saat XP, kuat saat damage/ancaman, notifikasi saat naik level |
 | **Efek suara** | SFX chiptune disintesis via WebAudio (nol file aset): blip XP, denting koin, arpeggio naik level, buzz damage — bisa dimatikan di Profil |
@@ -68,12 +69,14 @@ src/
 ├── notifications.ts       # Pengingat harian via Capacitor Local Notifications
 ├── game/formulas.ts       # Rumus Habitica: kurva XP, task value delta, damage, streak, cron
 ├── game/kingdom.ts        # Gelar, bangunan + efek, rakyat & profesi, ancaman, event, peta
+├── game/sprites.ts        # Pixel art 12×12 (palet + matriks piksel per level)
 ├── store/
 │   ├── storage.ts         # Adapter Capacitor Preferences (offline-first)
 │   └── useGame.ts         # Zustand store + persist: seluruh state & aksi game
 ├── components/
 │   ├── Header.tsx         # Lambang, bar moral & kemakmuran, kas
-│   ├── KingdomShop.tsx    # Pembangunan & dekorasi di tab Rewards
+│   ├── KingdomShop.tsx    # Pembangunan & dekorasi berlevel di tab Rewards
+│   ├── PixelSprite.tsx    # Renderer sprite pixel-art (SVG crispEdges)
 │   ├── KingdomView.tsx    # Tab Kerajaan: wilayah, ancaman, peta, rakyat, kronik
 │   ├── StatsModal.tsx     # Statistik: bar chart, area XP, heatmap (SVG)
 │   ├── TaskItem.tsx       # Kartu Habit / Daily / To-Do / Reward
