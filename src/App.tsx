@@ -12,7 +12,7 @@ import { StatsModal } from './components/StatsModal';
 import { OnboardingModal } from './components/OnboardingModal';
 import { Toasts } from './components/Toasts';
 import { KingdomShop } from './components/KingdomShop';
-import { KingdomView } from './components/KingdomView';
+import { KingdomMap } from './components/KingdomMap';
 
 type Tab = TaskType | 'bag';
 
@@ -102,9 +102,9 @@ export default function App() {
         onOpenStats={() => setStatsOpen(true)}
       />
 
-      <main className="task-list">
+      <main className={tab === 'bag' ? 'kmap-main' : 'task-list'}>
         {tab === 'bag' ? (
-          <KingdomView />
+          <KingdomMap />
         ) : (
           <>
             {visible.length === 0 && (
