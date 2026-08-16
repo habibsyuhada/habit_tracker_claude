@@ -9,6 +9,7 @@ import { TaskItem } from './components/TaskItem';
 import { TaskModal } from './components/TaskModal';
 import { SettingsModal } from './components/SettingsModal';
 import { StatsModal } from './components/StatsModal';
+import { OnboardingModal } from './components/OnboardingModal';
 import { Toasts } from './components/Toasts';
 import { GearShop } from './components/GearShop';
 import { KingdomView } from './components/KingdomView';
@@ -34,6 +35,7 @@ const EMPTY_HINT: Record<Tab, string> = {
 export default function App() {
   const hydrated = useGame((s) => s._hydrated);
   const tasks = useGame((s) => s.tasks);
+  const onboarded = useGame((s) => s.onboarded);
   const runCron = useGame((s) => s.runCron);
 
   const [tab, setTab] = useState<Tab>('habit');
@@ -161,6 +163,7 @@ export default function App() {
       )}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       {statsOpen && <StatsModal onClose={() => setStatsOpen(false)} />}
+      {!onboarded && <OnboardingModal />}
 
       <Toasts />
     </div>

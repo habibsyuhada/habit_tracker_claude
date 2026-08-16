@@ -32,6 +32,8 @@ Semua data tersimpan **di perangkat** (Capacitor Preferences di Android/iOS, loc
 | **Rakyat & profesi** | Rakyat punya nama & profesi (Petani/Penambang/Pujangga/Tabib/Penjaga) dengan penghasilan pasif harian: kas, kemakmuran, atau pemulihan moral |
 | **Ancaman** | Serigala, bandit, wabah, sampai naga bisa muncul — tangkal dengan menyelesaikan N titah sebelum tenggat; berhasil = hadiah gold, gagal = moral rakyat diserang |
 | **Dekorasi** | 6 dekorasi kosmetik (taman bunga, patung, gerbang pelangi, ...) untuk mempercantik peta wilayah |
+| **Onboarding** | Cerita pembuka 3 babak untuk pemain baru: kisah kerajaan, penjelasan titah, dan penobatan (nama + lambang) |
+| **Haptics** | Getaran kontekstual via Capacitor Haptics: halus saat XP, kuat saat damage/ancaman, notifikasi saat naik level |
 
 Mekanik "ampun": kalau app lama tidak dibuka, damage hanya ditagih maksimal 3 hari.
 

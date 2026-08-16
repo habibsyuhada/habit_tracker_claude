@@ -27,6 +27,7 @@ import {
   xpToNextLevel,
 } from '../game/formulas';
 import { offlineStorage } from './storage';
+import { hapticForToast } from '../haptics';
 import {
   DROP_CHANCE,
   GEAR_BY_ID,
@@ -82,6 +83,9 @@ interface GameState {
   /** riwayat aktivitas per hari untuk statistik, kunci yyyy-mm-dd */
   history: Record<string, DayStats>;
   kingdom: Kingdom;
+  /** sudah melewati cerita pembuka */
+  onboarded: boolean;
+  setOnboarded: () => void;
   toasts: Toast[];
   _hydrated: boolean;
 
@@ -348,11 +352,15 @@ export const useGame = create<GameState>()(
       reminder: { enabled: false, time: '20:00' },
       history: {},
       kingdom: defaultKingdom(),
+      onboarded: false,
       toasts: [],
       _hydrated: false,
 
+      setOnboarded: () => set({ onboarded: true }),
+
       pushToast: (kind, text) => {
         const toast: Toast = { id: uid(), kind, text };
+        hapticForToast(kind);
         set((s) => ({ toasts: [...s.toasts.slice(-3), toast] }));
       },
 
@@ -852,9 +860,21 @@ export const useGame = create<GameState>()(
           };
           pushToast('info', event.text);
 
-          // hasil kerja rakyat semalam
+          // hasil kerja rakyat semalam — rakyat hanya bekerja bila rajanya
+          // memimpin (minimal 1 titah selesai kemarin), supaya tidak ada
+          // penghasilan gratis tanpa kebiasaan
+          const workedYesterday =
+            (get().history[days[days.length - 1]]?.done ?? 0) > 0;
           const yield_ = dailyYield(kd.citizens);
-          if (yield_.gold > 0 || yield_.xp > 0 || yield_.moral > 0) {
+          if (!workedYesterday && kd.citizens.length > 0) {
+            kd = {
+              ...kd,
+              log: [
+                { date: today, text: '😴 Rakyat ikut bermalas-malasan — tak ada titah kemarin.' },
+                ...kd.log,
+              ].slice(0, 14),
+            };
+          } else if (yield_.gold > 0 || yield_.xp > 0 || yield_.moral > 0) {
             p.gold = Math.round((p.gold + yield_.gold) * 100) / 100;
             p = applyGains(p, yield_.xp, 0, pushToast);
             p.hp = Math.min(p.maxHp, Math.round((p.hp + yield_.moral) * 10) / 10);
@@ -1000,17 +1020,20 @@ export const useGame = create<GameState>()(
           reminder: { enabled: false, time: '20:00' },
           history: {},
           kingdom: defaultKingdom(),
+          onboarded: false,
           toasts: [],
         }),
     }),
     {
       name: 'habitquest-save',
       storage: createJSONStorage(() => offlineStorage),
-      version: 6,
+      version: 7,
       // save lama tetap terbaca: lengkapi field yang belum ada
       migrate: (persisted) => {
         const s = persisted as Partial<GameState>;
         s.history ??= {};
+        // pemain lama tidak perlu melihat cerita pembuka lagi
+        s.onboarded ??= true;
         s.kingdom ??= defaultKingdom();
         // v5 → v6: rakyat dulu hanya angka, kini punya nama & profesi
         if (typeof (s.kingdom as { citizens: unknown }).citizens === 'number') {
@@ -1049,6 +1072,7 @@ export const useGame = create<GameState>()(
         reminder: s.reminder,
         history: s.history,
         kingdom: s.kingdom,
+        onboarded: s.onboarded,
       }),
       onRehydrateStorage: () => () => {
         useGame.setState({ _hydrated: true });
