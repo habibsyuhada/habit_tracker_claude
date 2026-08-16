@@ -85,19 +85,16 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     cond: (s) => (s.kingdom.buildings.castle ?? 0) >= 1,
   },
   {
-    id: 'pet1', name: 'Sahabat Pertama', emoji: '🐣',
-    desc: 'Tetaskan satwa kerajaan pertamamu',
-    cond: (s) => s.player.pets.length >= 1,
+    id: 'builder3', name: 'Sang Pembangun', emoji: '🧱',
+    desc: 'Dirikan 3 bangunan',
+    cond: (s) =>
+      Object.values(s.kingdom.buildings).filter((l) => l > 0).length >= 3,
   },
   {
-    id: 'pet6', name: 'Penjaga Satwa', emoji: '🦄',
-    desc: 'Koleksi 6 satwa kerajaan',
-    cond: (s) => s.player.pets.length >= 6,
-  },
-  {
-    id: 'gearAll', name: 'Pusaka Paripurna', emoji: '🗡️',
-    desc: 'Miliki seluruh 15 pusaka kerajaan',
-    cond: (s) => s.player.ownedGear.length >= 15,
+    id: 'builderAll', name: 'Arsitek Agung', emoji: '📐',
+    desc: 'Dirikan seluruh 7 bangunan',
+    cond: (s) =>
+      Object.values(s.kingdom.buildings).filter((l) => l > 0).length >= 7,
   },
   {
     id: 'threat1', name: 'Pelindung Kerajaan', emoji: '🛡️',

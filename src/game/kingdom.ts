@@ -42,44 +42,45 @@ export interface BuildingDef {
   goldPct: number;
   xpPct: number;
   damagePct: number;
-  dropCap: number;
+  /** hari ekstra tenggat sebelum ancaman menyerang */
+  threatDelay: number;
   desc: string;
 }
 
 export const BUILDINGS: BuildingDef[] = [
   {
     id: 'farm', name: 'Ladang', emoji: '🌾', maxLevel: 3, baseCost: 15,
-    minCitizens: 0, goldPct: 3, xpPct: 0, damagePct: 0, dropCap: 0,
+    minCitizens: 0, goldPct: 3, xpPct: 0, damagePct: 0, threatDelay: 0,
     desc: '+3% kas kerajaan per level',
   },
   {
     id: 'well', name: 'Sumur', emoji: '⛲', maxLevel: 3, baseCost: 20,
-    minCitizens: 0, goldPct: 0, xpPct: 3, damagePct: 0, dropCap: 0,
+    minCitizens: 0, goldPct: 0, xpPct: 3, damagePct: 0, threatDelay: 0,
     desc: '+3% kemakmuran (XP) per level',
   },
   {
     id: 'hall', name: 'Balai Desa', emoji: '🏛️', maxLevel: 3, baseCost: 35,
-    minCitizens: 5, goldPct: 2, xpPct: 2, damagePct: 0, dropCap: 0,
+    minCitizens: 5, goldPct: 2, xpPct: 2, damagePct: 0, threatDelay: 0,
     desc: '+2% kas & kemakmuran per level',
   },
   {
     id: 'market', name: 'Pasar', emoji: '🏪', maxLevel: 3, baseCost: 50,
-    minCitizens: 8, goldPct: 5, xpPct: 0, damagePct: 0, dropCap: 0,
+    minCitizens: 8, goldPct: 5, xpPct: 0, damagePct: 0, threatDelay: 0,
     desc: '+5% kas kerajaan per level',
   },
   {
     id: 'temple', name: 'Kuil', emoji: '⛩️', maxLevel: 3, baseCost: 60,
-    minCitizens: 10, goldPct: 0, xpPct: 0, damagePct: 5, dropCap: 0,
+    minCitizens: 10, goldPct: 0, xpPct: 0, damagePct: 5, threatDelay: 0,
     desc: '-5% damage moral per level',
   },
   {
     id: 'tower', name: 'Menara Jaga', emoji: '🗼', maxLevel: 2, baseCost: 80,
-    minCitizens: 13, goldPct: 0, xpPct: 0, damagePct: 0, dropCap: 1,
-    desc: '+1 jatah drop harian per level',
+    minCitizens: 13, goldPct: 0, xpPct: 0, damagePct: 0, threatDelay: 1,
+    desc: 'Peringatan dini: +1 hari tenggat ancaman per level',
   },
   {
     id: 'castle', name: 'Kastil', emoji: '🏰', maxLevel: 1, baseCost: 250,
-    minCitizens: 18, goldPct: 5, xpPct: 5, damagePct: 5, dropCap: 0,
+    minCitizens: 18, goldPct: 5, xpPct: 5, damagePct: 5, threatDelay: 0,
     desc: '+5% kas & kemakmuran, -5% damage',
   },
 ];
@@ -97,27 +98,28 @@ export interface KingdomEffects {
   goldMult: number;
   xpMult: number;
   damageMult: number;
-  dropBonus: number;
+  /** hari ekstra tenggat ancaman dari Menara Jaga */
+  threatDelayBonus: number;
 }
 
 export function kingdomEffects(buildings: Record<string, number>): KingdomEffects {
   let gold = 0;
   let xp = 0;
   let dmg = 0;
-  let drop = 0;
+  let delay = 0;
   for (const [id, lvl] of Object.entries(buildings)) {
     const def = BUILDING_BY_ID[id];
     if (!def || lvl <= 0) continue;
     gold += def.goldPct * lvl;
     xp += def.xpPct * lvl;
     dmg += def.damagePct * lvl;
-    drop += def.dropCap * lvl;
+    delay += def.threatDelay * lvl;
   }
   return {
     goldMult: 1 + gold / 100,
     xpMult: 1 + xp / 100,
     damageMult: Math.max(0.4, 1 - dmg / 100),
-    dropBonus: drop,
+    threatDelayBonus: delay,
   };
 }
 

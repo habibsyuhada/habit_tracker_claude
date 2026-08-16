@@ -1,6 +1,5 @@
 import { useGame } from '../store/useGame';
 import { xpToNextLevel } from '../game/formulas';
-import { parsePetId } from '../game/items';
 import { titleFor } from '../game/kingdom';
 
 interface Props {
@@ -13,22 +12,12 @@ export function Header({ onOpenSettings, onOpenStats }: Props) {
   const xpNeeded = xpToNextLevel(player.level);
   const hpPct = Math.max(0, Math.min(100, (player.hp / player.maxHp) * 100));
   const xpPct = Math.max(0, Math.min(100, (player.xp / xpNeeded) * 100));
-  const pet = player.activePet ? parsePetId(player.activePet) : undefined;
 
   return (
     <header className="header">
       <div className="header-top">
         <button className="avatar" onClick={onOpenSettings} aria-label="Profil">
           {player.avatar}
-          {pet && (
-            <span
-              className="avatar-pet"
-              style={{ borderColor: pet.potion.color }}
-              title={`${pet.species.name} ${pet.potion.name}`}
-            >
-              {pet.species.emoji}
-            </span>
-          )}
         </button>
         <div className="header-info">
           <div className="header-name-row">

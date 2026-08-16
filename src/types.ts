@@ -56,8 +56,6 @@ export interface Reward extends BaseTask {
 
 export type Task = Habit | Daily | Todo | Reward;
 
-export type GearSlot = 'weapon' | 'armor' | 'head' | 'shield';
-
 export interface Player {
   name: string;
   avatar: string;
@@ -70,18 +68,6 @@ export interface Player {
   totalTasksDone: number;
   deaths: number;
   perfectDays: number;
-  /** id item yang sedang dipakai per slot */
-  gear: Partial<Record<GearSlot, string>>;
-  /** semua id item yang pernah dibeli */
-  ownedGear: string[];
-  /** inventaris telur & ramuan: id → jumlah */
-  eggs: Record<string, number>;
-  potions: Record<string, number>;
-  /** pet yang sudah menetas, id "spesies:warna" */
-  pets: string[];
-  activePet?: string;
-  /** pembatas drop harian, di-reset saat cron */
-  dropsToday: number;
 }
 
 export interface KingdomLogEntry {

@@ -23,19 +23,18 @@ Semua data tersimpan **di perangkat** (Capacitor Preferences di Android/iOS, loc
 | **Kematian** | HP habis → turun 1 level, gold hangus, HP pulih |
 | **Naik level** | HP pulih penuh |
 | **Checklist** | Sub-tugas di Daily & To-Do; item tercentang mengurangi damage daily terlewat secara proporsional (seperti Habitica) |
-| **Pusaka (equipment)** | Toko pusaka di tab Rewards (tier per slot: senjata/zirah/helm/perisai); 👑 Wibawa menambah kas & kemakmuran, 🛡️ Benteng mengurangi damage moral |
-| **Satwa kerajaan (pets)** | Telur & ramuan dipersembahkan acak saat titah selesai (dibatasi per hari), ditetaskan jadi satwa; satwa kesayangan tampil di samping lambang |
+| **Belanja kerajaan** | Tab Rewards berisi hadiah custom + Pembangunan + Dekorasi — semua kas mengalir ke kerajaan |
 | **Pengingat harian** | Notifikasi lokal (Capacitor Local Notifications) di jam pilihan — tetap 100% offline |
 | **Backup** | Ekspor/impor seluruh data sebagai JSON (share sheet di Android/iOS, unduhan di web) |
 | **Statistik** | Riwayat aktivitas harian: grafik tugas selesai & XP (14 hari), heatmap 12 minggu, plus ringkasan level/streak/koleksi |
-| **Kerajaan** | Tiap 4 tugas selesai = 1 rakyat baru; 7 bangunan dengan efek pasif (kas/kemakmuran/pertahanan/drop); gelar dari Kepala Dusun sampai Kaisar; peta wilayah yang tumbuh; event kerajaan tiap pergantian hari; kronik peristiwa |
+| **Kerajaan** | Tiap 4 tugas selesai = 1 rakyat baru; 7 bangunan dengan efek pasif (kas/kemakmuran/pertahanan/peringatan dini); gelar dari Kepala Dusun sampai Kaisar; peta wilayah yang tumbuh; event kerajaan tiap pergantian hari; kronik peristiwa |
 | **Rakyat & profesi** | Rakyat punya nama & profesi (Petani/Penambang/Pujangga/Tabib/Penjaga) dengan penghasilan pasif harian: kas, kemakmuran, atau pemulihan moral |
-| **Ancaman** | Serigala, bandit, wabah, sampai naga bisa muncul — tangkal dengan menyelesaikan N titah sebelum tenggat; berhasil = hadiah gold, gagal = moral rakyat diserang |
+| **Ancaman** | Serigala, bandit, wabah, sampai naga bisa muncul — tangkal dengan menyelesaikan N titah sebelum tenggat; berhasil = hadiah gold, gagal = moral rakyat diserang. Menara Jaga menambah hari tenggat |
 | **Dekorasi** | 6 dekorasi kosmetik (taman bunga, patung, gerbang pelangi, ...) untuk mempercantik peta wilayah |
 | **Onboarding** | Cerita pembuka 3 babak untuk pemain baru: kisah kerajaan, penjelasan titah, dan penobatan (nama + lambang) |
 | **Haptics** | Getaran kontekstual via Capacitor Haptics: halus saat XP, kuat saat damage/ancaman, notifikasi saat naik level |
 | **Efek suara** | SFX chiptune disintesis via WebAudio (nol file aset): blip XP, denting koin, arpeggio naik level, buzz damage — bisa dimatikan di Profil |
-| **Pencapaian** | 21 achievement (titah, streak, level, rakyat, kastil, pet, ancaman, dekorasi, ...) dengan galeri di halaman Statistik |
+| **Pencapaian** | 20 achievement (titah, streak, level, rakyat, pembangunan, ancaman, dekorasi, ...) dengan galeri di halaman Statistik |
 
 Mekanik "ampun": kalau app lama tidak dibuka, damage hanya ditagih maksimal 3 hari.
 
@@ -68,16 +67,14 @@ src/
 ├── types.ts               # Model data: Habit, Daily, Todo, Reward, Player, Checklist
 ├── notifications.ts       # Pengingat harian via Capacitor Local Notifications
 ├── game/formulas.ts       # Rumus Habitica: kurva XP, task value delta, damage, streak, cron
-├── game/items.ts          # Katalog gear (STR/CON), spesies pet, ramuan, aturan drop
-├── game/kingdom.ts        # Gelar, katalog bangunan + efek, event harian, peta wilayah
+├── game/kingdom.ts        # Gelar, bangunan + efek, rakyat & profesi, ancaman, event, peta
 ├── store/
 │   ├── storage.ts         # Adapter Capacitor Preferences (offline-first)
 │   └── useGame.ts         # Zustand store + persist: seluruh state & aksi game
 ├── components/
-│   ├── Header.tsx         # Avatar (+pet aktif), HP bar, XP bar, gold
-│   ├── GearShop.tsx       # Toko perlengkapan di tab Rewards
-│   ├── KingdomView.tsx    # Tab Kerajaan: peta, pembangunan, kronik, gudang
-│   ├── BagView.tsx        # Gudang: equip gear, penetasan, kandang pet
+│   ├── Header.tsx         # Lambang, bar moral & kemakmuran, kas
+│   ├── KingdomShop.tsx    # Pembangunan & dekorasi di tab Rewards
+│   ├── KingdomView.tsx    # Tab Kerajaan: wilayah, ancaman, peta, rakyat, kronik
 │   ├── StatsModal.tsx     # Statistik: bar chart, area XP, heatmap (SVG)
 │   ├── TaskItem.tsx       # Kartu Habit / Daily / To-Do / Reward
 │   ├── TaskModal.tsx      # Form buat/edit tugas

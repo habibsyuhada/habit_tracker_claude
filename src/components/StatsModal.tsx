@@ -294,7 +294,9 @@ export function StatsModal({ onClose }: { onClose: () => void }) {
   const tasks = useGame((s) => s.tasks);
   const history = useGame((s) => s.history);
   const achievements = useGame((s) => s.achievements);
+  const kingdom = useGame((s) => s.kingdom);
   const unlockedCount = Object.keys(achievements).length;
+  const builtCount = Object.values(kingdom.buildings).filter((l) => l > 0).length;
 
   const days14 = useMemo(() => lastNDays(history, 14), [history]);
   const bestStreak = tasks.reduce(
@@ -331,12 +333,12 @@ export function StatsModal({ onClose }: { onClose: () => void }) {
             <span>perfect day</span>
           </div>
           <div>
-            <b>{player.pets.length}</b>
-            <span>satwa</span>
+            <b>{kingdom.citizens.length}</b>
+            <span>rakyat</span>
           </div>
           <div>
-            <b>{player.ownedGear.length}</b>
-            <span>pusaka</span>
+            <b>{builtCount}</b>
+            <span>bangunan</span>
           </div>
         </div>
 

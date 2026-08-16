@@ -11,7 +11,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { StatsModal } from './components/StatsModal';
 import { OnboardingModal } from './components/OnboardingModal';
 import { Toasts } from './components/Toasts';
-import { GearShop } from './components/GearShop';
+import { KingdomShop } from './components/KingdomShop';
 import { KingdomView } from './components/KingdomView';
 
 type Tab = TaskType | 'bag';
@@ -128,7 +128,7 @@ export default function App() {
                 {doneTodoCount})
               </button>
             )}
-            {tab === 'reward' && <GearShop />}
+            {tab === 'reward' && <KingdomShop />}
           </>
         )}
       </main>

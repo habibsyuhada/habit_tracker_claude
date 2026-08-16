@@ -30,20 +30,7 @@ import { offlineStorage } from './storage';
 import { hapticForToast } from '../haptics';
 import { sfxForToast } from '../sfx';
 import { ACHIEVEMENTS } from '../game/achievements';
-import {
-  DROP_CHANCE,
-  GEAR_BY_ID,
-  MAX_DROPS_PER_DAY,
-  POTIONS,
-  SPECIES,
-  SPECIES_BY_ID,
-  POTION_BY_ID,
-  conReduction,
-  petId,
-  playerStats,
-  strMultiplier,
-} from '../game/items';
-import type { GearSlot, Kingdom } from '../types';
+import type { Kingdom } from '../types';
 import {
   CITIZEN_EVERY,
   BUILDING_BY_ID,
@@ -107,11 +94,6 @@ interface GameState {
   toggleChecklistItem: (taskId: string, itemId: string) => void;
   buyReward: (id: string) => void;
 
-  buyGear: (gearId: string) => void;
-  equipGear: (gearId: string) => void;
-  unequipGear: (slot: GearSlot) => void;
-  hatchPet: (speciesId: string, potionId: string) => void;
-  setActivePet: (petId?: string) => void;
   buildBuilding: (buildingId: string) => void;
   buyDecor: (decorId: string) => void;
 
@@ -137,13 +119,6 @@ const defaultPlayer = (): Player => ({
   totalTasksDone: 0,
   deaths: 0,
   perfectDays: 0,
-  gear: {},
-  ownedGear: [],
-  eggs: {},
-  potions: {},
-  pets: [],
-  activePet: undefined,
-  dropsToday: 0,
 });
 
 const everyDay = () => [true, true, true, true, true, true, true];
@@ -331,31 +306,6 @@ function bumpHistory(
   };
 }
 
-/**
- * Drop acak ala Habitica: tugas selesai berpeluang menjatuhkan
- * telur atau ramuan penetas, dibatasi per hari.
- */
-function rollDrop(
-  player: Player,
-  push: (kind: Toast['kind'], text: string) => void,
-  extraCap = 0
-): Player {
-  if (player.dropsToday >= MAX_DROPS_PER_DAY + extraCap) return player;
-  if (Math.random() > DROP_CHANCE) return player;
-
-  const p = { ...player, dropsToday: player.dropsToday + 1 };
-  if (Math.random() < 0.5) {
-    const s = SPECIES[Math.floor(Math.random() * SPECIES.length)];
-    p.eggs = { ...p.eggs, [s.id]: (p.eggs[s.id] ?? 0) + 1 };
-    push('gold', `🥚 Seorang pemburu mempersembahkan Telur ${s.name}!`);
-  } else {
-    const pot = POTIONS[Math.floor(Math.random() * POTIONS.length)];
-    p.potions = { ...p.potions, [pot.id]: (p.potions[pot.id] ?? 0) + 1 };
-    push('gold', `🧪 Tabib istana meramu Ramuan ${pot.name}!`);
-  }
-  return p;
-}
-
 /** HP habis: turun 1 level, gold hangus, HP pulih — mekanik kematian Habitica. */
 function applyDeathIfNeeded(
   player: Player,
@@ -497,23 +447,19 @@ export const useGame = create<GameState>()(
         let p = { ...player };
         let kd = get().kingdom;
         let hist = { done: 0, xp: 0, gold: 0 };
-        const stats = playerStats(p);
         const eff = kingdomEffects(kd.buildings);
         if (direction === 'up') {
-          const xp = xpGain(delta, strMultiplier(stats.str) * eff.xpMult);
-          const gold = goldGain(delta, strMultiplier(stats.str) * eff.goldMult);
+          const xp = xpGain(delta, eff.xpMult);
+          const gold = goldGain(delta, eff.goldMult);
           p = applyGains(p, xp, gold, pushToast);
           p.totalTasksDone += 1;
-          p = rollDrop(p, pushToast, eff.dropBonus);
           kd = maybeGrowCitizens(kd, pushToast);
           [kd, p] = progressThreat(kd, p, pushToast);
           hist = { done: 1, xp, gold };
           pushToast('xp', `+${xp} XP · +${gold.toFixed(1)} gold`);
         } else {
           const dmg =
-            Math.round(
-              hpDamage(delta) * (1 - conReduction(stats.con)) * eff.damageMult * 10
-            ) / 10;
+            Math.round(hpDamage(delta) * eff.damageMult * 10) / 10;
           p.hp = Math.max(0, Math.round((p.hp - dmg) * 10) / 10);
           pushToast('hp', `-${dmg.toFixed(1)} HP`);
           p = applyDeathIfNeeded(p, pushToast);
@@ -541,8 +487,7 @@ export const useGame = create<GameState>()(
 
         if (!task.completed) {
           const delta = taskDelta(task.value, 'up', task.difficulty);
-          const bonus =
-            streakBonus(task.streak) * strMultiplier(playerStats(p).str);
+          const bonus = streakBonus(task.streak);
           const xp = xpGain(delta, bonus * eff.xpMult);
           const gold = goldGain(delta, bonus * eff.goldMult);
           updated = {
@@ -553,7 +498,6 @@ export const useGame = create<GameState>()(
           };
           p = applyGains(p, xp, gold, pushToast);
           p.totalTasksDone += 1;
-          p = rollDrop(p, pushToast, eff.dropBonus);
           kd = maybeGrowCitizens(kd, pushToast);
           [kd, p] = progressThreat(kd, p, pushToast);
           hist = { done: 1, xp, gold };
@@ -563,9 +507,7 @@ export const useGame = create<GameState>()(
           // batal centang: kembalikan reward & streak dengan multiplier yang
           // sama seperti saat diberikan, supaya tidak bisa "diperah"
           const delta = taskDelta(task.value, 'down', task.difficulty);
-          const bonus =
-            streakBonus(Math.max(0, task.streak - 1)) *
-            strMultiplier(playerStats(p).str);
+          const bonus = streakBonus(Math.max(0, task.streak - 1));
           const xp = xpGain(delta, bonus * eff.xpMult);
           const gold = goldGain(delta, bonus * eff.goldMult);
           updated = {
@@ -603,9 +545,8 @@ export const useGame = create<GameState>()(
 
         if (!task.completed) {
           const delta = taskDelta(task.value, 'up', task.difficulty);
-          const strBonus = strMultiplier(playerStats(p).str);
-          const xp = xpGain(delta, strBonus * eff.xpMult);
-          const gold = goldGain(delta, strBonus * eff.goldMult);
+          const xp = xpGain(delta, eff.xpMult);
+          const gold = goldGain(delta, eff.goldMult);
           updated = {
             ...task,
             completed: true,
@@ -614,7 +555,6 @@ export const useGame = create<GameState>()(
           };
           p = applyGains(p, xp, gold, pushToast);
           p.totalTasksDone += 1;
-          p = rollDrop(p, pushToast, eff.dropBonus);
           kd = maybeGrowCitizens(kd, pushToast);
           [kd, p] = progressThreat(kd, p, pushToast);
           hist = { done: 1, xp, gold };
@@ -623,9 +563,8 @@ export const useGame = create<GameState>()(
           // batal centang: refund memakai multiplier yang sama seperti saat
           // reward diberikan, dan progres kerajaan ikut mundur
           const delta = taskDelta(task.value, 'down', task.difficulty);
-          const strBonus = strMultiplier(playerStats(p).str);
-          const xp = xpGain(delta, strBonus * eff.xpMult);
-          const gold = goldGain(delta, strBonus * eff.goldMult);
+          const xp = xpGain(delta, eff.xpMult);
+          const gold = goldGain(delta, eff.goldMult);
           updated = {
             ...task,
             completed: false,
@@ -679,72 +618,6 @@ export const useGame = create<GameState>()(
         }));
         pushToast('gold', `🎁 ${reward.title} ditebus! -${reward.cost} gold`);
       },
-
-      buyGear: (gearId) => {
-        const { player, pushToast } = get();
-        const item = GEAR_BY_ID[gearId];
-        if (!item || player.ownedGear.includes(gearId)) return;
-        if (player.gold < item.cost) {
-          pushToast('info', `Gold belum cukup — butuh ${item.cost} 🪙`);
-          return;
-        }
-        set((s) => ({
-          player: {
-            ...s.player,
-            gold: Math.round((s.player.gold - item.cost) * 100) / 100,
-            ownedGear: [...s.player.ownedGear, gearId],
-            gear: { ...s.player.gear, [item.slot]: gearId },
-          },
-        }));
-        pushToast('level', `${item.emoji} ${item.name} dibeli & langsung dipakai!`);
-        get().checkAchievements();
-      },
-
-      equipGear: (gearId) => {
-        const item = GEAR_BY_ID[gearId];
-        if (!item) return;
-        set((s) => {
-          if (!s.player.ownedGear.includes(gearId)) return s;
-          return {
-            player: { ...s.player, gear: { ...s.player.gear, [item.slot]: gearId } },
-          };
-        });
-      },
-
-      unequipGear: (slot) =>
-        set((s) => {
-          const gear = { ...s.player.gear };
-          delete gear[slot];
-          return { player: { ...s.player, gear } };
-        }),
-
-      hatchPet: (speciesId, potionId) => {
-        const { player, pushToast } = get();
-        const species = SPECIES_BY_ID[speciesId];
-        const potion = POTION_BY_ID[potionId];
-        if (!species || !potion) return;
-        if ((player.eggs[speciesId] ?? 0) < 1 || (player.potions[potionId] ?? 0) < 1)
-          return;
-        const id = petId(speciesId, potionId);
-        if (player.pets.includes(id)) {
-          pushToast('info', `${species.emoji} ${species.name} ${potion.name} sudah kamu miliki`);
-          return;
-        }
-        set((s) => ({
-          player: {
-            ...s.player,
-            eggs: { ...s.player.eggs, [speciesId]: s.player.eggs[speciesId] - 1 },
-            potions: { ...s.player.potions, [potionId]: s.player.potions[potionId] - 1 },
-            pets: [...s.player.pets, id],
-            activePet: s.player.activePet ?? id,
-          },
-        }));
-        pushToast('level', `🐣 ${species.name} ${potion.name} menetas!`);
-        get().checkAchievements();
-      },
-
-      setActivePet: (id) =>
-        set((s) => ({ player: { ...s.player, activePet: id } })),
 
       buildBuilding: (buildingId) => {
         const { player, kingdom, pushToast } = get();
@@ -876,17 +749,11 @@ export const useGame = create<GameState>()(
           };
         });
 
-        let p = { ...player, dropsToday: 0 };
+        let p = { ...player };
         let kd = { ...get().kingdom };
         const eff = kingdomEffects(kd.buildings);
         if (totalDamage > 0) {
-          totalDamage =
-            Math.round(
-              totalDamage *
-                (1 - conReduction(playerStats(p).con)) *
-                eff.damageMult *
-                10
-            ) / 10;
+          totalDamage = Math.round(totalDamage * eff.damageMult * 10) / 10;
           p.hp = Math.max(0, Math.round((p.hp - totalDamage) * 10) / 10);
           pushToast(
             'hp',
@@ -975,8 +842,11 @@ export const useGame = create<GameState>()(
           if (!kd.threat && Math.random() < THREAT_CHANCE) {
             const def = pickThreat(p.level);
             if (def) {
+              // Menara Jaga memberi peringatan dini: tenggat lebih panjang
               const expires = new Date();
-              expires.setDate(expires.getDate() + def.days - 1);
+              expires.setDate(
+                expires.getDate() + def.days - 1 + eff.threatDelayBonus
+              );
               kd = {
                 ...kd,
                 threat: { defId: def.id, progress: 0, expiresOn: dateKey(expires) },
@@ -1050,9 +920,20 @@ export const useGame = create<GameState>()(
             get().pushToast('danger', 'File tidak valid — bukan backup HabitQuest');
             return false;
           }
+          // backup lama masih membawa data gear/pet — buang saja
+          const importedPlayer = { ...defaultPlayer(), ...data.player } as Record<
+            string,
+            unknown
+          >;
+          for (const key of [
+            'gear', 'ownedGear', 'eggs', 'potions', 'pets', 'activePet', 'dropsToday',
+          ]) {
+            delete importedPlayer[key];
+          }
+          const validAch = new Set(ACHIEVEMENTS.map((a) => a.id));
           set({
             // backup versi lama tetap bisa dipulihkan: isi field baru dengan default
-            player: { ...defaultPlayer(), ...data.player },
+            player: importedPlayer as unknown as Player,
             tasks: (data.tasks as Task[]).map((t) =>
               t.type === 'daily' || t.type === 'todo'
                 ? { ...t, checklist: t.checklist ?? [] }
@@ -1074,7 +955,11 @@ export const useGame = create<GameState>()(
                   recruitProgress: data.kingdom.recruitProgress ?? 0,
                 }
               : defaultKingdom(),
-            achievements: data.achievements ?? {},
+            achievements: Object.fromEntries(
+              Object.entries(
+                (data.achievements ?? {}) as Record<string, string>
+              ).filter(([id]) => validAch.has(id))
+            ),
           });
           get().pushToast('info', '📥 Backup berhasil dipulihkan!');
           return true;
@@ -1100,7 +985,7 @@ export const useGame = create<GameState>()(
     {
       name: 'habitquest-save',
       storage: createJSONStorage(() => offlineStorage),
-      version: 9,
+      version: 10,
       // save lama tetap terbaca: lengkapi field yang belum ada
       migrate: (persisted) => {
         const s = persisted as Partial<GameState>;
@@ -1129,16 +1014,21 @@ export const useGame = create<GameState>()(
         }
         s.reminder ??= { enabled: false, time: '20:00' };
         if (s.player) {
-          s.player = {
-            ...defaultPlayer(),
-            ...s.player,
-            gear: s.player.gear ?? {},
-            ownedGear: s.player.ownedGear ?? [],
-            eggs: s.player.eggs ?? {},
-            potions: s.player.potions ?? {},
-            pets: s.player.pets ?? [],
-            dropsToday: s.player.dropsToday ?? 0,
-          };
+          // v10: lapisan petualang (gear/pet/drop) dihapus — buang sisa datanya
+          const legacy = s.player as unknown as Record<string, unknown>;
+          for (const key of [
+            'gear', 'ownedGear', 'eggs', 'potions', 'pets', 'activePet', 'dropsToday',
+          ]) {
+            delete legacy[key];
+          }
+          s.player = { ...defaultPlayer(), ...s.player };
+        }
+        // buang pencapaian dari sistem yang sudah dihapus
+        if (s.achievements) {
+          const valid = new Set(ACHIEVEMENTS.map((a) => a.id));
+          s.achievements = Object.fromEntries(
+            Object.entries(s.achievements).filter(([id]) => valid.has(id))
+          );
         }
         return s;
       },

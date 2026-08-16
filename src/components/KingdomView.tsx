@@ -1,24 +1,18 @@
 import { useGame } from '../store/useGame';
 import {
-  BUILDINGS,
-  DECOR,
   JOB_BY_ID,
   THREAT_BY_ID,
   buildMap,
-  buildingCost,
   dailyYield,
   kingdomEffects,
   titleFor,
 } from '../game/kingdom';
 import { dateKey, parseDateKey } from '../game/formulas';
-import { BagView } from './BagView';
 
-/** Tab Kerajaan: peta wilayah, pembangunan, kronik, lalu gudang & pet. */
+/** Tab Kerajaan: wilayah, ancaman, peta, rakyat, dan kronik. */
 export function KingdomView() {
   const player = useGame((s) => s.player);
   const kingdom = useGame((s) => s.kingdom);
-  const buildBuilding = useGame((s) => s.buildBuilding);
-  const buyDecor = useGame((s) => s.buyDecor);
 
   const tier = titleFor(player.level);
   const eff = kingdomEffects(kingdom.buildings);
@@ -43,7 +37,8 @@ export function KingdomView() {
   if (eff.xpMult > 1) bonuses.push(`+${Math.round((eff.xpMult - 1) * 100)}% kemakmuran`);
   if (eff.damageMult < 1)
     bonuses.push(`-${Math.round((1 - eff.damageMult) * 100)}% damage moral`);
-  if (eff.dropBonus > 0) bonuses.push(`+${eff.dropBonus} jatah drop`);
+  if (eff.threatDelayBonus > 0)
+    bonuses.push(`+${eff.threatDelayBonus} hari tenggat ancaman`);
 
   return (
     <div className="kingdom">
@@ -97,7 +92,8 @@ export function KingdomView() {
       </div>
       <p className="muted map-hint">
         Wilayahmu tumbuh dari titah yang kamu tunaikan: tiap 4 tugas selesai, satu
-        rakyat baru datang; tiap 3 rakyat mendirikan satu rumah.
+        rakyat baru datang; tiap 3 rakyat mendirikan satu rumah. Bangunan &
+        dekorasi bisa dibeli di tab Rewards.
       </p>
 
       {/* ---- rakyat ---- */}
@@ -132,60 +128,6 @@ export function KingdomView() {
         )}
       </div>
 
-      {/* ---- pembangunan ---- */}
-      <h3 className="section-title">🏗️ Pembangunan</h3>
-      {BUILDINGS.map((def) => {
-        const level = kingdom.buildings[def.id] ?? 0;
-        const maxed = level >= def.maxLevel;
-        const locked = kingdom.citizens.length < def.minCitizens;
-        const cost = buildingCost(def, level);
-        return (
-          <div className="card gear-card" key={def.id}>
-            <div className="gear-emoji">{def.emoji}</div>
-            <div className="card-body no-click">
-              <div className="card-title">
-                {def.name}
-                {level > 0 && <span className="bld-level"> Lv {level}/{def.maxLevel}</span>}
-              </div>
-              <div className="card-meta">
-                <span>{def.desc}</span>
-                {locked && <span className="overdue">butuh {def.minCitizens} rakyat</span>}
-              </div>
-            </div>
-            {maxed ? (
-              <span className="bld-maxed">MAX</span>
-            ) : (
-              <button
-                className={`buy-btn ${!locked && player.gold >= cost ? '' : 'poor'}`}
-                onClick={() => buildBuilding(def.id)}
-              >
-                🪙 {cost}
-              </button>
-            )}
-          </div>
-        );
-      })}
-
-      {/* ---- dekorasi ---- */}
-      <h3 className="section-title">🌸 Dekorasi</h3>
-      <div className="decor-grid">
-        {DECOR.map((def) => {
-          const owned = kingdom.decor.includes(def.id);
-          return (
-            <button
-              key={def.id}
-              className={`decor-tile ${owned ? 'owned' : ''}`}
-              disabled={owned}
-              onClick={() => buyDecor(def.id)}
-            >
-              <span className="decor-emoji">{def.emoji}</span>
-              <span className="decor-name">{def.name}</span>
-              <span className="decor-cost">{owned ? '✓ terpasang' : `🪙 ${def.cost}`}</span>
-            </button>
-          );
-        })}
-      </div>
-
       {/* ---- kronik ---- */}
       <h3 className="section-title">📜 Kronik Kerajaan</h3>
       {kingdom.log.length === 0 ? (
@@ -200,10 +142,6 @@ export function KingdomView() {
           ))}
         </div>
       )}
-
-      {/* ---- gudang & hewan kerajaan ---- */}
-      <h3 className="section-title">🎒 Gudang Kerajaan</h3>
-      <BagView />
     </div>
   );
 }
