@@ -23,6 +23,7 @@ Semua data tersimpan **di perangkat** (Capacitor Preferences di Android/iOS, loc
 | **Pets** | Telur & ramuan drop acak dari tugas selesai (dibatasi per hari), ditetaskan jadi pet; pet aktif tampil di samping avatar |
 | **Pengingat harian** | Notifikasi lokal (Capacitor Local Notifications) di jam pilihan — tetap 100% offline |
 | **Backup** | Ekspor/impor seluruh data sebagai JSON (share sheet di Android/iOS, unduhan di web) |
+| **Statistik** | Riwayat aktivitas harian: grafik tugas selesai & XP (14 hari), heatmap 12 minggu, plus ringkasan level/streak/koleksi |
 
 Mekanik "ampun": kalau app lama tidak dibuka, damage hanya ditagih maksimal 3 hari.
 
@@ -63,6 +64,7 @@ src/
 │   ├── Header.tsx         # Avatar (+pet aktif), HP bar, XP bar, gold
 │   ├── GearShop.tsx       # Toko perlengkapan di tab Rewards
 │   ├── BagView.tsx        # Tab Tas: equip gear, penetasan, kandang pet
+│   ├── StatsModal.tsx     # Statistik: bar chart, area XP, heatmap (SVG)
 │   ├── TaskItem.tsx       # Kartu Habit / Daily / To-Do / Reward
 │   ├── TaskModal.tsx      # Form buat/edit tugas
 │   ├── SettingsModal.tsx  # Profil, statistik, reset data

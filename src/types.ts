@@ -84,6 +84,14 @@ export interface Player {
   dropsToday: number;
 }
 
+/** Agregat aktivitas satu hari, kunci = tanggal lokal yyyy-mm-dd */
+export interface DayStats {
+  /** jumlah tugas diselesaikan (habit +, daily, todo) */
+  done: number;
+  xp: number;
+  gold: number;
+}
+
 export interface ReminderSettings {
   enabled: boolean;
   /** format "HH:MM" waktu lokal */

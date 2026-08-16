@@ -8,6 +8,7 @@ import { Header } from './components/Header';
 import { TaskItem } from './components/TaskItem';
 import { TaskModal } from './components/TaskModal';
 import { SettingsModal } from './components/SettingsModal';
+import { StatsModal } from './components/StatsModal';
 import { Toasts } from './components/Toasts';
 import { GearShop } from './components/GearShop';
 import { BagView } from './components/BagView';
@@ -39,6 +40,7 @@ export default function App() {
   const [editing, setEditing] = useState<Task | null>(null);
   const [creating, setCreating] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
   const [showDoneTodos, setShowDoneTodos] = useState(false);
 
   // Cron dijalankan setelah data lokal termuat, lalu tiap kali app aktif lagi
@@ -92,7 +94,10 @@ export default function App() {
 
   return (
     <div className="app">
-      <Header onOpenSettings={() => setSettingsOpen(true)} />
+      <Header
+        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenStats={() => setStatsOpen(true)}
+      />
 
       <main className="task-list">
         {tab === 'bag' ? (
@@ -155,6 +160,7 @@ export default function App() {
         />
       )}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      {statsOpen && <StatsModal onClose={() => setStatsOpen(false)} />}
 
       <Toasts />
     </div>

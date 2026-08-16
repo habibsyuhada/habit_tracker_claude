@@ -3,6 +3,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import type {
   ChecklistItem,
   Daily,
+  DayStats,
   Difficulty,
   Habit,
   Player,
@@ -64,6 +65,8 @@ interface GameState {
   tasks: Task[];
   lastCron: string;
   reminder: ReminderSettings;
+  /** riwayat aktivitas per hari untuk statistik, kunci yyyy-mm-dd */
+  history: Record<string, DayStats>;
   toasts: Toast[];
   _hydrated: boolean;
 
@@ -196,6 +199,23 @@ function applyGains(
   return p;
 }
 
+/** Catat aktivitas hari ini ke riwayat (delta bisa negatif saat batal centang). */
+function bumpHistory(
+  history: Record<string, DayStats>,
+  delta: { done: number; xp: number; gold: number }
+): Record<string, DayStats> {
+  const key = dateKey();
+  const cur = history[key] ?? { done: 0, xp: 0, gold: 0 };
+  return {
+    ...history,
+    [key]: {
+      done: Math.max(0, cur.done + delta.done),
+      xp: Math.max(0, cur.xp + delta.xp),
+      gold: Math.max(0, Math.round((cur.gold + delta.gold) * 100) / 100),
+    },
+  };
+}
+
 /**
  * Drop acak ala Habitica: tugas selesai berpeluang menjatuhkan
  * telur atau ramuan penetas, dibatasi per hari.
@@ -243,6 +263,7 @@ export const useGame = create<GameState>()(
       tasks: seedTasks(),
       lastCron: dateKey(),
       reminder: { enabled: false, time: '20:00' },
+      history: {},
       toasts: [],
       _hydrated: false,
 
@@ -330,6 +351,7 @@ export const useGame = create<GameState>()(
         };
 
         let p = { ...player };
+        let hist = { done: 0, xp: 0, gold: 0 };
         const stats = playerStats(p);
         if (direction === 'up') {
           const strBonus = strMultiplier(stats.str);
@@ -338,6 +360,7 @@ export const useGame = create<GameState>()(
           p = applyGains(p, xp, gold, pushToast);
           p.totalTasksDone += 1;
           p = rollDrop(p, pushToast);
+          hist = { done: 1, xp, gold };
           pushToast('xp', `+${xp} XP · +${gold.toFixed(1)} gold`);
         } else {
           const dmg =
@@ -350,6 +373,7 @@ export const useGame = create<GameState>()(
         set((s) => ({
           player: p,
           tasks: s.tasks.map((t) => (t.id === id ? updated : t)),
+          history: bumpHistory(s.history, hist),
         }));
       },
 
@@ -360,6 +384,7 @@ export const useGame = create<GameState>()(
 
         let p = { ...player };
         let updated: Daily;
+        let hist: { done: number; xp: number; gold: number };
 
         if (!task.completed) {
           const delta = taskDelta(task.value, 'up', task.difficulty);
@@ -376,26 +401,31 @@ export const useGame = create<GameState>()(
           p = applyGains(p, xp, gold, pushToast);
           p.totalTasksDone += 1;
           p = rollDrop(p, pushToast);
+          hist = { done: 1, xp, gold };
           const streakNote = updated.streak > 1 ? ` · 🔥 streak ${updated.streak}` : '';
           pushToast('xp', `+${xp} XP · +${gold.toFixed(1)} gold${streakNote}`);
         } else {
           // batal centang: kembalikan reward & streak
           const delta = taskDelta(task.value, 'down', task.difficulty);
           const bonus = streakBonus(Math.max(0, task.streak - 1));
+          const xp = xpGain(delta, bonus);
+          const gold = goldGain(delta, bonus);
           updated = {
             ...task,
             completed: false,
             streak: Math.max(0, task.streak - 1),
             value: task.value + delta,
           };
-          p.xp = Math.max(0, p.xp - xpGain(delta, bonus));
-          p.gold = Math.max(0, Math.round((p.gold - goldGain(delta, bonus)) * 100) / 100);
+          p.xp = Math.max(0, p.xp - xp);
+          p.gold = Math.max(0, Math.round((p.gold - gold) * 100) / 100);
           p.totalTasksDone = Math.max(0, p.totalTasksDone - 1);
+          hist = { done: -1, xp: -xp, gold: -gold };
         }
 
         set((s) => ({
           player: p,
           tasks: s.tasks.map((t) => (t.id === id ? updated : t)),
+          history: bumpHistory(s.history, hist),
         }));
       },
 
@@ -406,6 +436,7 @@ export const useGame = create<GameState>()(
 
         let p = { ...player };
         let updated: Todo;
+        let hist: { done: number; xp: number; gold: number };
 
         if (!task.completed) {
           const delta = taskDelta(task.value, 'up', task.difficulty);
@@ -421,23 +452,28 @@ export const useGame = create<GameState>()(
           p = applyGains(p, xp, gold, pushToast);
           p.totalTasksDone += 1;
           p = rollDrop(p, pushToast);
+          hist = { done: 1, xp, gold };
           pushToast('xp', `+${xp} XP · +${gold.toFixed(1)} gold`);
         } else {
           const delta = taskDelta(task.value, 'down', task.difficulty);
+          const xp = xpGain(delta);
+          const gold = goldGain(delta);
           updated = {
             ...task,
             completed: false,
             completedAt: undefined,
             value: task.value + delta,
           };
-          p.xp = Math.max(0, p.xp - xpGain(delta));
-          p.gold = Math.max(0, Math.round((p.gold - goldGain(delta)) * 100) / 100);
+          p.xp = Math.max(0, p.xp - xp);
+          p.gold = Math.max(0, Math.round((p.gold - gold) * 100) / 100);
           p.totalTasksDone = Math.max(0, p.totalTasksDone - 1);
+          hist = { done: -1, xp: -xp, gold: -gold };
         }
 
         set((s) => ({
           player: p,
           tasks: s.tasks.map((t) => (t.id === id ? updated : t)),
+          history: bumpHistory(s.history, hist),
         }));
       },
 
@@ -623,7 +659,16 @@ export const useGame = create<GameState>()(
           }
         }
 
-        set({ player: p, tasks: newTasks, lastCron: today });
+        // riwayat dibatasi 180 hari terakhir supaya save tetap ramping
+        const historyKeys = Object.keys(get().history).sort();
+        const trimmed =
+          historyKeys.length > 180
+            ? Object.fromEntries(
+                historyKeys.slice(-180).map((k) => [k, get().history[k]])
+              )
+            : get().history;
+
+        set({ player: p, tasks: newTasks, lastCron: today, history: trimmed });
       },
 
       setProfile: (name, avatar) =>
@@ -634,16 +679,17 @@ export const useGame = create<GameState>()(
       setReminder: (settings) => set({ reminder: settings }),
 
       exportData: () => {
-        const { player, tasks, lastCron, reminder } = get();
+        const { player, tasks, lastCron, reminder, history } = get();
         return JSON.stringify(
           {
             app: 'habitquest',
-            version: 2,
+            version: 4,
             exportedAt: new Date().toISOString(),
             player,
             tasks,
             lastCron,
             reminder,
+            history,
           },
           null,
           2
@@ -671,6 +717,7 @@ export const useGame = create<GameState>()(
             ),
             lastCron: data.lastCron ?? dateKey(),
             reminder: data.reminder ?? { enabled: false, time: '20:00' },
+            history: data.history ?? {},
           });
           get().pushToast('info', '📥 Backup berhasil dipulihkan!');
           return true;
@@ -686,16 +733,18 @@ export const useGame = create<GameState>()(
           tasks: seedTasks(),
           lastCron: dateKey(),
           reminder: { enabled: false, time: '20:00' },
+          history: {},
           toasts: [],
         }),
     }),
     {
       name: 'habitquest-save',
       storage: createJSONStorage(() => offlineStorage),
-      version: 3,
+      version: 4,
       // save lama tetap terbaca: lengkapi field yang belum ada
       migrate: (persisted) => {
         const s = persisted as Partial<GameState>;
+        s.history ??= {};
         if (Array.isArray(s.tasks)) {
           s.tasks = s.tasks.map((t) => {
             if (t.type !== 'daily' && t.type !== 'todo') return t;
@@ -722,6 +771,7 @@ export const useGame = create<GameState>()(
         tasks: s.tasks,
         lastCron: s.lastCron,
         reminder: s.reminder,
+        history: s.history,
       }),
       onRehydrateStorage: () => () => {
         useGame.setState({ _hydrated: true });

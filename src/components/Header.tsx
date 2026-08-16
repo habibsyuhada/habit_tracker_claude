@@ -4,9 +4,10 @@ import { parsePetId } from '../game/items';
 
 interface Props {
   onOpenSettings: () => void;
+  onOpenStats: () => void;
 }
 
-export function Header({ onOpenSettings }: Props) {
+export function Header({ onOpenSettings, onOpenStats }: Props) {
   const player = useGame((s) => s.player);
   const xpNeeded = xpToNextLevel(player.level);
   const hpPct = Math.max(0, Math.min(100, (player.hp / player.maxHp) * 100));
@@ -48,8 +49,13 @@ export function Header({ onOpenSettings }: Props) {
             </div>
           </div>
         </div>
-        <div className="gold-chip" title="Gold">
-          🪙 {player.gold.toFixed(1)}
+        <div className="header-right">
+          <div className="gold-chip" title="Gold">
+            🪙 {player.gold.toFixed(1)}
+          </div>
+          <button className="stats-btn" onClick={onOpenStats} aria-label="Statistik">
+            📊
+          </button>
         </div>
       </div>
     </header>
