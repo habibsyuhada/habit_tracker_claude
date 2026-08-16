@@ -89,11 +89,31 @@ export interface KingdomLogEntry {
   text: string;
 }
 
+export interface Citizen {
+  id: string;
+  name: string;
+  /** id profesi dari katalog JOBS */
+  job: string;
+}
+
+export interface ActiveThreat {
+  /** id dari katalog THREATS */
+  defId: string;
+  /** jumlah tugas selesai sejak ancaman muncul */
+  progress: number;
+  /** hari terakhir (yyyy-mm-dd) sebelum ancaman menyerang */
+  expiresOn: string;
+}
+
 export interface Kingdom {
-  /** jumlah rakyat */
-  citizens: number;
+  /** daftar rakyat, masing-masing punya nama & profesi */
+  citizens: Citizen[];
   /** id bangunan → level terbangun */
   buildings: Record<string, number>;
+  /** dekorasi yang sudah dibeli */
+  decor: string[];
+  /** ancaman yang sedang aktif (bila ada) */
+  threat?: ActiveThreat;
   /** catatan peristiwa kerajaan, terbaru di depan */
   log: KingdomLogEntry[];
 }

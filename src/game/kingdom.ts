@@ -1,4 +1,4 @@
-import type { Kingdom } from '../types';
+import type { Citizen, Kingdom } from '../types';
 
 /**
  * Kerajaan Mini — identitas baru game ini:
@@ -121,6 +121,152 @@ export function kingdomEffects(buildings: Record<string, number>): KingdomEffect
   };
 }
 
+// ---------- rakyat: nama & profesi ----------
+
+export interface JobDef {
+  id: string;
+  name: string;
+  emoji: string;
+  /** hasil pasif per hari */
+  gold: number;
+  xp: number;
+  moral: number;
+  /** bobot kemunculan saat rakyat baru datang */
+  weight: number;
+}
+
+export const JOBS: JobDef[] = [
+  { id: 'farmer', name: 'Petani', emoji: '👨‍🌾', gold: 0.5, xp: 0, moral: 0, weight: 4 },
+  { id: 'miner', name: 'Penambang', emoji: '⛏️', gold: 0.8, xp: 0, moral: 0, weight: 2 },
+  { id: 'poet', name: 'Pujangga', emoji: '🎭', gold: 0, xp: 1, moral: 0, weight: 2 },
+  { id: 'healer', name: 'Tabib', emoji: '🌿', gold: 0, xp: 0, moral: 0.5, weight: 1 },
+  { id: 'guard', name: 'Penjaga', emoji: '💂', gold: 0.3, xp: 0, moral: 0, weight: 1 },
+];
+
+export const JOB_BY_ID = Object.fromEntries(JOBS.map((j) => [j.id, j]));
+
+const CITIZEN_NAMES = [
+  'Budi', 'Sari', 'Joko', 'Dewi', 'Agus', 'Rina', 'Tono', 'Lina', 'Wawan',
+  'Ratna', 'Bambang', 'Siti', 'Eko', 'Maya', 'Dodi', 'Indah', 'Galih',
+  'Wulan', 'Raden', 'Laras', 'Surya', 'Melati',
+];
+
+const uid = () =>
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+export function newCitizen(): Citizen {
+  const totalWeight = JOBS.reduce((s, j) => s + j.weight, 0);
+  let roll = Math.random() * totalWeight;
+  let job = JOBS[0];
+  for (const j of JOBS) {
+    roll -= j.weight;
+    if (roll <= 0) {
+      job = j;
+      break;
+    }
+  }
+  return {
+    id: uid(),
+    name: CITIZEN_NAMES[Math.floor(Math.random() * CITIZEN_NAMES.length)],
+    job: job.id,
+  };
+}
+
+/** Hasil kerja seluruh rakyat untuk satu hari. */
+export function dailyYield(citizens: Citizen[]): {
+  gold: number;
+  xp: number;
+  moral: number;
+} {
+  let gold = 0;
+  let xp = 0;
+  let moral = 0;
+  for (const c of citizens) {
+    const job = JOB_BY_ID[c.job];
+    if (!job) continue;
+    gold += job.gold;
+    xp += job.xp;
+    moral += job.moral;
+  }
+  return {
+    gold: Math.round(gold * 10) / 10,
+    xp: Math.round(xp),
+    moral: Math.round(moral * 10) / 10,
+  };
+}
+
+// ---------- ancaman kerajaan ----------
+
+export interface ThreatDef {
+  id: string;
+  name: string;
+  emoji: string;
+  /** jumlah tugas yang harus diselesaikan untuk menangkal */
+  goal: number;
+  /** tenggat dalam hari */
+  days: number;
+  minLevel: number;
+  rewardGold: number;
+  penaltyMoral: number;
+  warning: string;
+}
+
+export const THREATS: ThreatDef[] = [
+  {
+    id: 'wolves', name: 'Kawanan Serigala', emoji: '🐺', goal: 5, days: 2,
+    minLevel: 1, rewardGold: 15, penaltyMoral: 6,
+    warning: 'terlihat mengintai di perbatasan hutan!',
+  },
+  {
+    id: 'bandits', name: 'Gerombolan Bandit', emoji: '🏴‍☠️', goal: 7, days: 2,
+    minLevel: 4, rewardGold: 25, penaltyMoral: 8,
+    warning: 'berkemah di jalur dagang menuju kerajaan!',
+  },
+  {
+    id: 'plague', name: 'Wabah Misterius', emoji: '🦠', goal: 8, days: 3,
+    minLevel: 6, rewardGold: 30, penaltyMoral: 10,
+    warning: 'mulai menjangkiti desa-desa tetangga!',
+  },
+  {
+    id: 'dragon', name: 'Naga Gunung', emoji: '🐲', goal: 12, days: 3,
+    minLevel: 10, rewardGold: 60, penaltyMoral: 12,
+    warning: 'terbangun dari tidurnya dan mengincar wilayahmu!',
+  },
+];
+
+export const THREAT_BY_ID = Object.fromEntries(THREATS.map((t) => [t.id, t]));
+
+/** Peluang ancaman baru muncul tiap pergantian hari (bila tidak ada yang aktif). */
+export const THREAT_CHANCE = 0.3;
+
+export function pickThreat(level: number): ThreatDef | undefined {
+  const eligible = THREATS.filter((t) => level >= t.minLevel);
+  if (eligible.length === 0) return undefined;
+  return eligible[Math.floor(Math.random() * eligible.length)];
+}
+
+// ---------- dekorasi ----------
+
+export interface DecorDef {
+  id: string;
+  name: string;
+  emoji: string;
+  cost: number;
+}
+
+export const DECOR: DecorDef[] = [
+  { id: 'garden', name: 'Taman Bunga', emoji: '🌸', cost: 15 },
+  { id: 'lantern', name: 'Lentera Batu', emoji: '🏮', cost: 20 },
+  { id: 'statue', name: 'Patung Pahlawan', emoji: '🗿', cost: 35 },
+  { id: 'pond', name: 'Kolam Teratai', emoji: '🪷', cost: 30 },
+  { id: 'windmill', name: 'Kincir Angin', emoji: '🪁', cost: 45 },
+  { id: 'rainbow', name: 'Gerbang Pelangi', emoji: '🌈', cost: 60 },
+];
+
+export const DECOR_BY_ID = Object.fromEntries(DECOR.map((d) => [d.id, d]));
+
 // ---------- event kerajaan harian ----------
 
 export interface KingdomEvent {
@@ -186,7 +332,11 @@ export function buildMap(kingdom: Kingdom): string[] {
   for (const def of BUILDINGS) {
     if ((kingdom.buildings[def.id] ?? 0) > 0) placed.push(def.emoji);
   }
-  const houses = Math.floor(kingdom.citizens / 3);
+  for (const id of kingdom.decor) {
+    const def = DECOR_BY_ID[id];
+    if (def) placed.push(def.emoji);
+  }
+  const houses = Math.floor(kingdom.citizens.length / 3);
   for (let i = 0; i < houses; i++) placed.push('🏠');
 
   const total = Math.max(21, Math.ceil((placed.length + 6) / 7) * 7);

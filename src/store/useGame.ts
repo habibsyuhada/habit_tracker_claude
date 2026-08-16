@@ -44,8 +44,15 @@ import type { GearSlot, Kingdom } from '../types';
 import {
   CITIZEN_EVERY,
   BUILDING_BY_ID,
+  DECOR_BY_ID,
+  JOB_BY_ID,
+  THREAT_BY_ID,
+  THREAT_CHANCE,
   buildingCost,
+  dailyYield,
   kingdomEffects,
+  newCitizen,
+  pickThreat,
   rollKingdomEvent,
 } from '../game/kingdom';
 
@@ -94,6 +101,7 @@ interface GameState {
   hatchPet: (speciesId: string, potionId: string) => void;
   setActivePet: (petId?: string) => void;
   buildBuilding: (buildingId: string) => void;
+  buyDecor: (decorId: string) => void;
 
   runCron: () => void;
   setProfile: (name: string, avatar: string) => void;
@@ -129,8 +137,9 @@ const defaultPlayer = (): Player => ({
 const everyDay = () => [true, true, true, true, true, true, true];
 
 const defaultKingdom = (): Kingdom => ({
-  citizens: 3,
+  citizens: [newCitizen(), newCitizen(), newCitizen()],
   buildings: {},
+  decor: [],
   log: [],
 });
 
@@ -141,9 +150,52 @@ function maybeGrowCitizens(
   push: (kind: Toast['kind'], text: string) => void
 ): Kingdom {
   if (totalTasksDone <= 0 || totalTasksDone % CITIZEN_EVERY !== 0) return kingdom;
-  const next = { ...kingdom, citizens: kingdom.citizens + 1 };
-  push('level', `🧑‍🌾 Rakyat baru bergabung dengan kerajaanmu! (${next.citizens} jiwa)`);
+  const citizen = newCitizen();
+  const job = JOB_BY_ID[citizen.job];
+  const next = { ...kingdom, citizens: [...kingdom.citizens, citizen] };
+  push(
+    'level',
+    `${job.emoji} ${citizen.name} sang ${job.name} bergabung! (${next.citizens.length} jiwa)`
+  );
   return next;
+}
+
+/**
+ * Setiap tugas selesai memajukan penangkalan ancaman yang sedang aktif.
+ * Bila target tercapai, ancaman langsung diusir dan hadiah cair.
+ */
+function progressThreat(
+  kingdom: Kingdom,
+  player: Player,
+  push: (kind: Toast['kind'], text: string) => void
+): [Kingdom, Player] {
+  if (!kingdom.threat) return [kingdom, player];
+  const def = THREAT_BY_ID[kingdom.threat.defId];
+  if (!def) return [{ ...kingdom, threat: undefined }, player];
+
+  const progress = kingdom.threat.progress + 1;
+  if (progress < def.goal) {
+    return [{ ...kingdom, threat: { ...kingdom.threat, progress } }, player];
+  }
+  const p = {
+    ...player,
+    gold: Math.round((player.gold + def.rewardGold) * 100) / 100,
+  };
+  push(
+    'level',
+    `${def.emoji} ${def.name} berhasil diusir! Hadiah ${def.rewardGold} gold 🎉`
+  );
+  return [
+    {
+      ...kingdom,
+      threat: undefined,
+      log: [
+        { date: dateKey(), text: `${def.emoji} ${def.name} diusir oleh titah rajanya!` },
+        ...kingdom.log,
+      ].slice(0, 14),
+    },
+    p,
+  ];
 }
 
 const seedTasks = (): Task[] => {
@@ -394,6 +446,7 @@ export const useGame = create<GameState>()(
           p.totalTasksDone += 1;
           p = rollDrop(p, pushToast, eff.dropBonus);
           kd = maybeGrowCitizens(kd, p.totalTasksDone, pushToast);
+          [kd, p] = progressThreat(kd, p, pushToast);
           hist = { done: 1, xp, gold };
           pushToast('xp', `+${xp} XP · +${gold.toFixed(1)} gold`);
         } else {
@@ -441,6 +494,7 @@ export const useGame = create<GameState>()(
           p.totalTasksDone += 1;
           p = rollDrop(p, pushToast, eff.dropBonus);
           kd = maybeGrowCitizens(kd, p.totalTasksDone, pushToast);
+          [kd, p] = progressThreat(kd, p, pushToast);
           hist = { done: 1, xp, gold };
           const streakNote = updated.streak > 1 ? ` · 🔥 streak ${updated.streak}` : '';
           pushToast('xp', `+${xp} XP · +${gold.toFixed(1)} gold${streakNote}`);
@@ -496,6 +550,7 @@ export const useGame = create<GameState>()(
           p.totalTasksDone += 1;
           p = rollDrop(p, pushToast, eff.dropBonus);
           kd = maybeGrowCitizens(kd, p.totalTasksDone, pushToast);
+          [kd, p] = progressThreat(kd, p, pushToast);
           hist = { done: 1, xp, gold };
           pushToast('xp', `+${xp} XP · +${gold.toFixed(1)} gold`);
         } else {
@@ -624,7 +679,7 @@ export const useGame = create<GameState>()(
         if (!def) return;
         const curLevel = kingdom.buildings[buildingId] ?? 0;
         if (curLevel >= def.maxLevel) return;
-        if (kingdom.citizens < def.minCitizens) {
+        if (kingdom.citizens.length < def.minCitizens) {
           pushToast('info', `Butuh ${def.minCitizens} rakyat untuk membangun ${def.name}`);
           return;
         }
@@ -655,6 +710,31 @@ export const useGame = create<GameState>()(
           'level',
           `${def.emoji} ${def.name}${newLevel > 1 ? ` naik ke Lv ${newLevel}` : ' berdiri'}!`
         );
+      },
+
+      buyDecor: (decorId) => {
+        const { player, kingdom, pushToast } = get();
+        const def = DECOR_BY_ID[decorId];
+        if (!def || kingdom.decor.includes(decorId)) return;
+        if (player.gold < def.cost) {
+          pushToast('info', `Kas belum cukup — butuh ${def.cost} 🪙`);
+          return;
+        }
+        set((s) => ({
+          player: {
+            ...s.player,
+            gold: Math.round((s.player.gold - def.cost) * 100) / 100,
+          },
+          kingdom: {
+            ...s.kingdom,
+            decor: [...s.kingdom.decor, decorId],
+            log: [
+              { date: dateKey(), text: `${def.emoji} ${def.name} mempercantik wilayah!` },
+              ...s.kingdom.log,
+            ].slice(0, 14),
+          },
+        }));
+        pushToast('level', `${def.emoji} ${def.name} terpasang di petamu!`);
       },
 
       /**
@@ -764,13 +844,66 @@ export const useGame = create<GameState>()(
             p.hp = Math.min(p.maxHp, Math.round((p.hp + event.moral) * 10) / 10);
           }
           if (event.citizens) {
-            kd = { ...kd, citizens: kd.citizens + event.citizens };
+            kd = { ...kd, citizens: [...kd.citizens, newCitizen()] };
           }
           kd = {
             ...kd,
             log: [{ date: today, text: event.text }, ...kd.log].slice(0, 14),
           };
           pushToast('info', event.text);
+
+          // hasil kerja rakyat semalam
+          const yield_ = dailyYield(kd.citizens);
+          if (yield_.gold > 0 || yield_.xp > 0 || yield_.moral > 0) {
+            p.gold = Math.round((p.gold + yield_.gold) * 100) / 100;
+            p = applyGains(p, yield_.xp, 0, pushToast);
+            p.hp = Math.min(p.maxHp, Math.round((p.hp + yield_.moral) * 10) / 10);
+            const parts = [
+              yield_.gold > 0 ? `+${yield_.gold} kas` : '',
+              yield_.xp > 0 ? `+${yield_.xp} kemakmuran` : '',
+              yield_.moral > 0 ? `+${yield_.moral} moral` : '',
+            ]
+              .filter(Boolean)
+              .join(' · ');
+            const text = `🧺 Rakyat bekerja: ${parts}`;
+            kd = { ...kd, log: [{ date: today, text }, ...kd.log].slice(0, 14) };
+            pushToast('gold', text);
+          }
+
+          // ancaman: gagal ditangkal? lalu mungkin muncul yang baru
+          if (kd.threat) {
+            const def = THREAT_BY_ID[kd.threat.defId];
+            if (def && today > kd.threat.expiresOn) {
+              p.hp = Math.max(0, Math.round((p.hp - def.penaltyMoral) * 10) / 10);
+              const text = `${def.emoji} ${def.name} menyerang! Moral rakyat -${def.penaltyMoral}`;
+              kd = {
+                ...kd,
+                threat: undefined,
+                log: [{ date: today, text }, ...kd.log].slice(0, 14),
+              };
+              pushToast('danger', text);
+              p = applyDeathIfNeeded(p, pushToast);
+            }
+          }
+          if (!kd.threat && Math.random() < THREAT_CHANCE) {
+            const def = pickThreat(p.level);
+            if (def) {
+              const expires = new Date();
+              expires.setDate(expires.getDate() + def.days - 1);
+              kd = {
+                ...kd,
+                threat: { defId: def.id, progress: 0, expiresOn: dateKey(expires) },
+                log: [
+                  { date: today, text: `${def.emoji} ${def.name} ${def.warning}` },
+                  ...kd.log,
+                ].slice(0, 14),
+              };
+              pushToast(
+                'danger',
+                `${def.emoji} ${def.name} ${def.warning} Selesaikan ${def.goal} titah dalam ${def.days} hari!`
+              );
+            }
+          }
         }
 
         // riwayat dibatasi 180 hari terakhir supaya save tetap ramping
@@ -839,7 +972,17 @@ export const useGame = create<GameState>()(
             lastCron: data.lastCron ?? dateKey(),
             reminder: data.reminder ?? { enabled: false, time: '20:00' },
             history: data.history ?? {},
-            kingdom: data.kingdom ?? defaultKingdom(),
+            kingdom: data.kingdom
+              ? {
+                  ...defaultKingdom(),
+                  ...data.kingdom,
+                  citizens:
+                    typeof data.kingdom.citizens === 'number'
+                      ? Array.from({ length: data.kingdom.citizens }, () => newCitizen())
+                      : data.kingdom.citizens ?? [],
+                  decor: data.kingdom.decor ?? [],
+                }
+              : defaultKingdom(),
           });
           get().pushToast('info', '📥 Backup berhasil dipulihkan!');
           return true;
@@ -863,12 +1006,21 @@ export const useGame = create<GameState>()(
     {
       name: 'habitquest-save',
       storage: createJSONStorage(() => offlineStorage),
-      version: 5,
+      version: 6,
       // save lama tetap terbaca: lengkapi field yang belum ada
       migrate: (persisted) => {
         const s = persisted as Partial<GameState>;
         s.history ??= {};
         s.kingdom ??= defaultKingdom();
+        // v5 → v6: rakyat dulu hanya angka, kini punya nama & profesi
+        if (typeof (s.kingdom as { citizens: unknown }).citizens === 'number') {
+          const count = (s.kingdom as unknown as { citizens: number }).citizens;
+          s.kingdom = {
+            ...s.kingdom,
+            citizens: Array.from({ length: count }, () => newCitizen()),
+          };
+        }
+        s.kingdom.decor ??= [];
         if (Array.isArray(s.tasks)) {
           s.tasks = s.tasks.map((t) => {
             if (t.type !== 'daily' && t.type !== 'todo') return t;

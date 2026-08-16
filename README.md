@@ -29,6 +29,9 @@ Semua data tersimpan **di perangkat** (Capacitor Preferences di Android/iOS, loc
 | **Backup** | Ekspor/impor seluruh data sebagai JSON (share sheet di Android/iOS, unduhan di web) |
 | **Statistik** | Riwayat aktivitas harian: grafik tugas selesai & XP (14 hari), heatmap 12 minggu, plus ringkasan level/streak/koleksi |
 | **Kerajaan** | Tiap 4 tugas selesai = 1 rakyat baru; 7 bangunan dengan efek pasif (kas/kemakmuran/pertahanan/drop); gelar dari Kepala Dusun sampai Kaisar; peta wilayah yang tumbuh; event kerajaan tiap pergantian hari; kronik peristiwa |
+| **Rakyat & profesi** | Rakyat punya nama & profesi (Petani/Penambang/Pujangga/Tabib/Penjaga) dengan penghasilan pasif harian: kas, kemakmuran, atau pemulihan moral |
+| **Ancaman** | Serigala, bandit, wabah, sampai naga bisa muncul — tangkal dengan menyelesaikan N titah sebelum tenggat; berhasil = hadiah gold, gagal = moral rakyat diserang |
+| **Dekorasi** | 6 dekorasi kosmetik (taman bunga, patung, gerbang pelangi, ...) untuk mempercantik peta wilayah |
 
 Mekanik "ampun": kalau app lama tidak dibuka, damage hanya ditagih maksimal 3 hari.
 
