@@ -19,6 +19,8 @@ Semua data tersimpan **di perangkat** (Capacitor Preferences di Android/iOS, loc
 | **Kematian** | HP habis → turun 1 level, gold hangus, HP pulih |
 | **Naik level** | HP pulih penuh |
 | **Checklist** | Sub-tugas di Daily & To-Do; item tercentang mengurangi damage daily terlewat secara proporsional (seperti Habitica) |
+| **Equipment** | Toko gear di tab Rewards (tier per slot: senjata/zirah/helm/perisai); STR menambah XP & gold, CON mengurangi damage |
+| **Pets** | Telur & ramuan drop acak dari tugas selesai (dibatasi per hari), ditetaskan jadi pet; pet aktif tampil di samping avatar |
 | **Pengingat harian** | Notifikasi lokal (Capacitor Local Notifications) di jam pilihan — tetap 100% offline |
 | **Backup** | Ekspor/impor seluruh data sebagai JSON (share sheet di Android/iOS, unduhan di web) |
 
@@ -53,11 +55,14 @@ src/
 ├── types.ts               # Model data: Habit, Daily, Todo, Reward, Player, Checklist
 ├── notifications.ts       # Pengingat harian via Capacitor Local Notifications
 ├── game/formulas.ts       # Rumus Habitica: kurva XP, task value delta, damage, streak, cron
+├── game/items.ts          # Katalog gear (STR/CON), spesies pet, ramuan, aturan drop
 ├── store/
 │   ├── storage.ts         # Adapter Capacitor Preferences (offline-first)
 │   └── useGame.ts         # Zustand store + persist: seluruh state & aksi game
 ├── components/
-│   ├── Header.tsx         # Avatar, HP bar, XP bar, gold
+│   ├── Header.tsx         # Avatar (+pet aktif), HP bar, XP bar, gold
+│   ├── GearShop.tsx       # Toko perlengkapan di tab Rewards
+│   ├── BagView.tsx        # Tab Tas: equip gear, penetasan, kandang pet
 │   ├── TaskItem.tsx       # Kartu Habit / Daily / To-Do / Reward
 │   ├── TaskModal.tsx      # Form buat/edit tugas
 │   ├── SettingsModal.tsx  # Profil, statistik, reset data

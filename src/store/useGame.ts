@@ -26,6 +26,20 @@ import {
   xpToNextLevel,
 } from '../game/formulas';
 import { offlineStorage } from './storage';
+import {
+  DROP_CHANCE,
+  GEAR_BY_ID,
+  MAX_DROPS_PER_DAY,
+  POTIONS,
+  SPECIES,
+  SPECIES_BY_ID,
+  POTION_BY_ID,
+  conReduction,
+  petId,
+  playerStats,
+  strMultiplier,
+} from '../game/items';
+import type { GearSlot } from '../types';
 
 const uid = () =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -63,6 +77,12 @@ interface GameState {
   toggleChecklistItem: (taskId: string, itemId: string) => void;
   buyReward: (id: string) => void;
 
+  buyGear: (gearId: string) => void;
+  equipGear: (gearId: string) => void;
+  unequipGear: (slot: GearSlot) => void;
+  hatchPet: (speciesId: string, potionId: string) => void;
+  setActivePet: (petId?: string) => void;
+
   runCron: () => void;
   setProfile: (name: string, avatar: string) => void;
   setReminder: (settings: ReminderSettings) => void;
@@ -85,6 +105,13 @@ const defaultPlayer = (): Player => ({
   totalTasksDone: 0,
   deaths: 0,
   perfectDays: 0,
+  gear: {},
+  ownedGear: [],
+  eggs: {},
+  potions: {},
+  pets: [],
+  activePet: undefined,
+  dropsToday: 0,
 });
 
 const everyDay = () => [true, true, true, true, true, true, true];
@@ -165,6 +192,30 @@ function applyGains(
   if (leveledUp) {
     p.hp = p.maxHp; // naik level memulihkan HP, seperti Habitica
     push('level', `🎉 Naik ke Level ${p.level}! HP pulih penuh.`);
+  }
+  return p;
+}
+
+/**
+ * Drop acak ala Habitica: tugas selesai berpeluang menjatuhkan
+ * telur atau ramuan penetas, dibatasi per hari.
+ */
+function rollDrop(
+  player: Player,
+  push: (kind: Toast['kind'], text: string) => void
+): Player {
+  if (player.dropsToday >= MAX_DROPS_PER_DAY) return player;
+  if (Math.random() > DROP_CHANCE) return player;
+
+  const p = { ...player, dropsToday: player.dropsToday + 1 };
+  if (Math.random() < 0.5) {
+    const s = SPECIES[Math.floor(Math.random() * SPECIES.length)];
+    p.eggs = { ...p.eggs, [s.id]: (p.eggs[s.id] ?? 0) + 1 };
+    push('gold', `🥚 Kamu menemukan Telur ${s.name}!`);
+  } else {
+    const pot = POTIONS[Math.floor(Math.random() * POTIONS.length)];
+    p.potions = { ...p.potions, [pot.id]: (p.potions[pot.id] ?? 0) + 1 };
+    push('gold', `🧪 Kamu menemukan Ramuan ${pot.name}!`);
   }
   return p;
 }
@@ -279,14 +330,18 @@ export const useGame = create<GameState>()(
         };
 
         let p = { ...player };
+        const stats = playerStats(p);
         if (direction === 'up') {
-          const xp = xpGain(delta);
-          const gold = goldGain(delta);
+          const strBonus = strMultiplier(stats.str);
+          const xp = xpGain(delta, strBonus);
+          const gold = goldGain(delta, strBonus);
           p = applyGains(p, xp, gold, pushToast);
           p.totalTasksDone += 1;
+          p = rollDrop(p, pushToast);
           pushToast('xp', `+${xp} XP · +${gold.toFixed(1)} gold`);
         } else {
-          const dmg = hpDamage(delta);
+          const dmg =
+            Math.round(hpDamage(delta) * (1 - conReduction(stats.con)) * 10) / 10;
           p.hp = Math.max(0, Math.round((p.hp - dmg) * 10) / 10);
           pushToast('hp', `-${dmg.toFixed(1)} HP`);
           p = applyDeathIfNeeded(p, pushToast);
@@ -308,7 +363,8 @@ export const useGame = create<GameState>()(
 
         if (!task.completed) {
           const delta = taskDelta(task.value, 'up', task.difficulty);
-          const bonus = streakBonus(task.streak);
+          const bonus =
+            streakBonus(task.streak) * strMultiplier(playerStats(p).str);
           const xp = xpGain(delta, bonus);
           const gold = goldGain(delta, bonus);
           updated = {
@@ -319,6 +375,7 @@ export const useGame = create<GameState>()(
           };
           p = applyGains(p, xp, gold, pushToast);
           p.totalTasksDone += 1;
+          p = rollDrop(p, pushToast);
           const streakNote = updated.streak > 1 ? ` · 🔥 streak ${updated.streak}` : '';
           pushToast('xp', `+${xp} XP · +${gold.toFixed(1)} gold${streakNote}`);
         } else {
@@ -352,8 +409,9 @@ export const useGame = create<GameState>()(
 
         if (!task.completed) {
           const delta = taskDelta(task.value, 'up', task.difficulty);
-          const xp = xpGain(delta);
-          const gold = goldGain(delta);
+          const strBonus = strMultiplier(playerStats(p).str);
+          const xp = xpGain(delta, strBonus);
+          const gold = goldGain(delta, strBonus);
           updated = {
             ...task,
             completed: true,
@@ -362,6 +420,7 @@ export const useGame = create<GameState>()(
           };
           p = applyGains(p, xp, gold, pushToast);
           p.totalTasksDone += 1;
+          p = rollDrop(p, pushToast);
           pushToast('xp', `+${xp} XP · +${gold.toFixed(1)} gold`);
         } else {
           const delta = taskDelta(task.value, 'down', task.difficulty);
@@ -413,6 +472,70 @@ export const useGame = create<GameState>()(
         }));
         pushToast('gold', `🎁 ${reward.title} ditebus! -${reward.cost} gold`);
       },
+
+      buyGear: (gearId) => {
+        const { player, pushToast } = get();
+        const item = GEAR_BY_ID[gearId];
+        if (!item || player.ownedGear.includes(gearId)) return;
+        if (player.gold < item.cost) {
+          pushToast('info', `Gold belum cukup — butuh ${item.cost} 🪙`);
+          return;
+        }
+        set((s) => ({
+          player: {
+            ...s.player,
+            gold: Math.round((s.player.gold - item.cost) * 100) / 100,
+            ownedGear: [...s.player.ownedGear, gearId],
+            gear: { ...s.player.gear, [item.slot]: gearId },
+          },
+        }));
+        pushToast('level', `${item.emoji} ${item.name} dibeli & langsung dipakai!`);
+      },
+
+      equipGear: (gearId) => {
+        const item = GEAR_BY_ID[gearId];
+        if (!item) return;
+        set((s) => {
+          if (!s.player.ownedGear.includes(gearId)) return s;
+          return {
+            player: { ...s.player, gear: { ...s.player.gear, [item.slot]: gearId } },
+          };
+        });
+      },
+
+      unequipGear: (slot) =>
+        set((s) => {
+          const gear = { ...s.player.gear };
+          delete gear[slot];
+          return { player: { ...s.player, gear } };
+        }),
+
+      hatchPet: (speciesId, potionId) => {
+        const { player, pushToast } = get();
+        const species = SPECIES_BY_ID[speciesId];
+        const potion = POTION_BY_ID[potionId];
+        if (!species || !potion) return;
+        if ((player.eggs[speciesId] ?? 0) < 1 || (player.potions[potionId] ?? 0) < 1)
+          return;
+        const id = petId(speciesId, potionId);
+        if (player.pets.includes(id)) {
+          pushToast('info', `${species.emoji} ${species.name} ${potion.name} sudah kamu miliki`);
+          return;
+        }
+        set((s) => ({
+          player: {
+            ...s.player,
+            eggs: { ...s.player.eggs, [speciesId]: s.player.eggs[speciesId] - 1 },
+            potions: { ...s.player.potions, [potionId]: s.player.potions[potionId] - 1 },
+            pets: [...s.player.pets, id],
+            activePet: s.player.activePet ?? id,
+          },
+        }));
+        pushToast('level', `🐣 ${species.name} ${potion.name} menetas!`);
+      },
+
+      setActivePet: (id) =>
+        set((s) => ({ player: { ...s.player, activePet: id } })),
 
       /**
        * "Cron" ala Habitica: dijalankan saat app dibuka / kembali aktif.
@@ -478,9 +601,10 @@ export const useGame = create<GameState>()(
           };
         });
 
-        let p = { ...player };
+        let p = { ...player, dropsToday: 0 };
         if (totalDamage > 0) {
-          totalDamage = Math.round(totalDamage * 10) / 10;
+          totalDamage =
+            Math.round(totalDamage * (1 - conReduction(playerStats(p).con)) * 10) / 10;
           p.hp = Math.max(0, Math.round((p.hp - totalDamage) * 10) / 10);
           pushToast(
             'hp',
@@ -538,8 +662,13 @@ export const useGame = create<GameState>()(
             return false;
           }
           set({
-            player: data.player,
-            tasks: data.tasks,
+            // backup versi lama tetap bisa dipulihkan: isi field baru dengan default
+            player: { ...defaultPlayer(), ...data.player },
+            tasks: (data.tasks as Task[]).map((t) =>
+              t.type === 'daily' || t.type === 'todo'
+                ? { ...t, checklist: t.checklist ?? [] }
+                : t
+            ),
             lastCron: data.lastCron ?? dateKey(),
             reminder: data.reminder ?? { enabled: false, time: '20:00' },
           });
@@ -563,8 +692,8 @@ export const useGame = create<GameState>()(
     {
       name: 'habitquest-save',
       storage: createJSONStorage(() => offlineStorage),
-      version: 2,
-      // save lama (pra-checklist) tetap terbaca: lengkapi field yang belum ada
+      version: 3,
+      // save lama tetap terbaca: lengkapi field yang belum ada
       migrate: (persisted) => {
         const s = persisted as Partial<GameState>;
         if (Array.isArray(s.tasks)) {
@@ -574,6 +703,18 @@ export const useGame = create<GameState>()(
           });
         }
         s.reminder ??= { enabled: false, time: '20:00' };
+        if (s.player) {
+          s.player = {
+            ...defaultPlayer(),
+            ...s.player,
+            gear: s.player.gear ?? {},
+            ownedGear: s.player.ownedGear ?? [],
+            eggs: s.player.eggs ?? {},
+            potions: s.player.potions ?? {},
+            pets: s.player.pets ?? [],
+            dropsToday: s.player.dropsToday ?? 0,
+          };
+        }
         return s;
       },
       partialize: (s) => ({
